@@ -10,51 +10,81 @@ git push
 
 ---
 
-## 1. Deploy Backend ke Koyeb (Gratis, tanpa kartu kredit)
+## 1. Deploy Backend ke Fly.io (Gratis, tanpa kartu kredit)
 
-### A. Buat akun Koyeb
-1. Buka https://app.koyeb.com
-2. Klik **Sign up with GitHub** — tidak perlu kartu kredit
+### A. Install flyctl (CLI Fly.io)
 
-### B. Buat App baru
-1. Klik **Create App**
-2. Pilih **GitHub** sebagai sumber
-3. Pilih repo `mcn-dashboard`, branch `main`
-4. **Root directory**: kosongkan (biarkan default `/`)
+```bash
+# macOS
+brew install flyctl
 
-### C. Konfigurasi Build & Run
-- **Build command**: `pip install -r requirements.txt`
-- **Run command**: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
-- **Port**: `8000`
+# Atau via script
+curl -L https://fly.io/install.sh | sh
+```
 
-### D. Tambah Database PostgreSQL di Koyeb
-1. Di dashboard Koyeb, klik **Databases** di sidebar
-2. Klik **Create Database** → pilih **PostgreSQL**
-3. Pilih region terdekat (Singapore)
-4. Setelah selesai, copy **Connection string** (format: `postgresql://...`)
+### B. Login ke Fly.io
 
-### E. Set Environment Variables
-Di halaman App → tab **Environment**, tambah:
+```bash
+flyctl auth signup   # buat akun baru (login via GitHub, tidak perlu kartu kredit)
+# atau
+flyctl auth login    # kalau sudah punya akun
+```
 
-| Key | Value |
-|-----|-------|
-| `DATABASE_URL` | `postgresql+asyncpg://user:pass@host:5432/dbname` (dari Koyeb DB, ganti `postgresql://` → `postgresql+asyncpg://`) |
-| `JWT_SECRET_KEY` | buat random string panjang (contoh: `openssl rand -hex 32`) |
-| `REDIS_URL` | `redis://localhost:6379/0` (atau kosongkan, app akan pakai memory cache) |
-| `ALLOWED_ORIGINS` | `https://your-app.vercel.app` (isi setelah dapat URL Vercel) |
+### C. Buat app di Fly.io
+
+```bash
+# Di root project (bukan folder dashboard/)
+flyctl apps create mcn-backend
+```
+
+Kalau nama `mcn-backend` sudah dipakai, ganti dengan nama lain misal `mcn-backend-gilang`.
+
+### D. Buat database PostgreSQL gratis di Fly.io
+
+```bash
+flyctl postgres create --name mcn-db --region sin --initial-cluster-size 1 --vm-size shared-cpu-1x --volume-size 1
+```
+
+Setelah selesai, attach ke app:
+
+```bash
+flyctl postgres attach mcn-db --app mcn-backend
+```
+
+Ini otomatis set env var `DATABASE_URL` di app kamu.
+
+### E. Set environment variables
+
+```bash
+# JWT secret (generate dulu)
+flyctl secrets set JWT_SECRET_KEY="$(openssl rand -hex 32)" --app mcn-backend
+
+# CORS (isi setelah dapat URL Vercel, untuk sekarang bisa wildcard dulu)
+flyctl secrets set ALLOWED_ORIGINS="*" --app mcn-backend
+```
 
 ### F. Deploy
-Klik **Deploy** — Koyeb akan build dan deploy otomatis.
 
-Setelah selesai, Koyeb kasih URL seperti:
-`https://mcn-backend-xxx.koyeb.app`
-
-### G. Jalankan Migrasi Database
-Setelah backend live, jalankan migrasi via endpoint atau manual:
 ```bash
-# Test health check dulu
-curl https://mcn-backend-xxx.koyeb.app/health
+flyctl deploy --app mcn-backend
 ```
+
+Tunggu sampai selesai. Fly.io akan build Docker image dan deploy otomatis.
+
+### G. Cek status
+
+```bash
+flyctl status --app mcn-backend
+```
+
+### H. Test health check
+
+```bash
+curl https://mcn-backend.fly.dev/health
+# Harus balas: {"status":"ok","version":"1.0.0"}
+```
+
+URL backend kamu: `https://mcn-backend.fly.dev`
 
 ---
 
@@ -68,57 +98,56 @@ curl https://mcn-backend-xxx.koyeb.app/health
 1. Klik **Add New Project**
 2. Import repo `mcn-dashboard`
 3. **PENTING**: Set **Root Directory** ke `dashboard`
-4. Framework akan terdeteksi otomatis sebagai **Next.js**
+4. Framework terdeteksi otomatis sebagai **Next.js**
 
 ### C. Set Environment Variables
-Di bagian **Environment Variables**, tambah:
 
 | Key | Value |
 |-----|-------|
-| `NEXT_PUBLIC_API_URL` | `https://mcn-backend-xxx.koyeb.app/api/v1` |
+| `NEXT_PUBLIC_API_URL` | `https://mcn-backend.fly.dev/api/v1` |
 
 5. Klik **Deploy**
 
-Vercel kasih URL seperti: `https://mcn-dashboard-xxx.vercel.app`
+URL frontend: `https://mcn-dashboard-xxx.vercel.app`
 
 ---
 
-## 3. Update CORS Backend
+## 3. Update CORS setelah dapat URL Vercel
 
-Setelah dapat URL Vercel, update env var di Koyeb:
-```
-ALLOWED_ORIGINS = https://mcn-dashboard-xxx.vercel.app
+```bash
+flyctl secrets set ALLOWED_ORIGINS="https://mcn-dashboard-xxx.vercel.app" --app mcn-backend
 ```
 
 ---
 
 ## Update Kode Setelah Deploy
 
-Setiap kali ada perubahan:
 ```bash
 git add .
 git commit -m "update: deskripsi perubahan"
 git push
+
+# Redeploy backend
+flyctl deploy --app mcn-backend
 ```
-Koyeb dan Vercel otomatis rebuild dan deploy ulang.
+
+Vercel otomatis rebuild saat ada push ke GitHub.
 
 ---
 
 ## Troubleshooting
 
+**`flyctl: command not found`**
+- Jalankan ulang terminal setelah install, atau tambah ke PATH:
+  `export PATH="$HOME/.fly/bin:$PATH"`
+
 **Backend error "DATABASE_URL invalid"**
-- Pastikan URL menggunakan `postgresql+asyncpg://` bukan `postgresql://`
+- Fly.io otomatis set `DATABASE_URL` dengan format `postgres://...`
+- App sudah handle konversi ke `postgresql+asyncpg://` — cek `app/database.py`
+
+**Build gagal**
+- Cek log: `flyctl logs --app mcn-backend`
 
 **Frontend "Gagal terhubung ke server"**
 - Pastikan `NEXT_PUBLIC_API_URL` sudah diset di Vercel
-- Pastikan URL backend Koyeb sudah benar (cek `/health`)
-
-**CORS error di browser**
-- Update `ALLOWED_ORIGINS` di Koyeb dengan URL Vercel yang benar
-
-**Build gagal di Koyeb**
-- Pastikan `requirements.txt` ada di root project
-- Cek log build di Koyeb dashboard
-
-**Redis tidak tersedia**
-- App akan otomatis fallback ke memory cache, tidak masalah untuk production kecil
+- Cek CORS: `flyctl secrets list --app mcn-backend`

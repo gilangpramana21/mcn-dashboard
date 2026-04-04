@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git/
+.gitignore
+dashboard/
+tests/
+*.md
+.hypothesis/
+.pytest_cache/
+.vscode/
+*.log

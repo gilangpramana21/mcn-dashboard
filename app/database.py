@@ -16,10 +16,19 @@ class Base(DeclarativeBase):
     """Declarative base for all ORM models."""
 
 
+def _fix_db_url(url: str) -> str:
+    """Fly.io / Heroku kasih postgres:// — konversi ke postgresql+asyncpg://"""
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif url.startswith("postgresql://") and "+asyncpg" not in url:
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
 def _create_engine():
     settings = get_settings()
     return create_async_engine(
-        settings.DATABASE_URL,
+        _fix_db_url(settings.DATABASE_URL),
         echo=False,
         pool_pre_ping=True,
         pool_size=10,
