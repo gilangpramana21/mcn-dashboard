@@ -3,91 +3,104 @@
 ## Persiapan: Push ke GitHub
 
 ```bash
-# Di terminal, dari root project
-git init
 git add .
-git commit -m "initial commit"
-
-# Buat repo baru di github.com, lalu:
-git remote add origin https://github.com/USERNAME/REPO_NAME.git
-git push -u origin main
+git commit -m "update: siap deploy"
+git push
 ```
 
 ---
 
-## 1. Deploy Backend ke Railway
+## 1. Deploy Backend ke Koyeb (Gratis, tanpa kartu kredit)
 
-### A. Buat akun Railway
-1. Buka https://railway.app
-2. Login dengan GitHub
+### A. Buat akun Koyeb
+1. Buka https://app.koyeb.com
+2. Klik **Sign up with GitHub** — tidak perlu kartu kredit
 
-### B. Deploy backend
-1. Klik **New Project**
-2. Pilih **Deploy from GitHub repo**
-3. Pilih repo yang sudah di-push
-4. Railway otomatis detect Python dan mulai build
+### B. Buat App baru
+1. Klik **Create App**
+2. Pilih **GitHub** sebagai sumber
+3. Pilih repo `mcn-dashboard`, branch `main`
+4. **Root directory**: kosongkan (biarkan default `/`)
 
-### C. Tambah PostgreSQL
-1. Di project Railway, klik **+ New**
-2. Pilih **Database** → **Add PostgreSQL**
-3. Setelah selesai, klik PostgreSQL → tab **Variables**
-4. Copy nilai `DATABASE_URL`
+### C. Konfigurasi Build & Run
+- **Build command**: `pip install -r requirements.txt`
+- **Run command**: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
+- **Port**: `8000`
 
-### D. Set Environment Variables di Railway
-Klik service backend → tab **Variables** → tambah:
+### D. Tambah Database PostgreSQL di Koyeb
+1. Di dashboard Koyeb, klik **Databases** di sidebar
+2. Klik **Create Database** → pilih **PostgreSQL**
+3. Pilih region terdekat (Singapore)
+4. Setelah selesai, copy **Connection string** (format: `postgresql://...`)
 
+### E. Set Environment Variables
+Di halaman App → tab **Environment**, tambah:
+
+| Key | Value |
+|-----|-------|
+| `DATABASE_URL` | `postgresql+asyncpg://user:pass@host:5432/dbname` (dari Koyeb DB, ganti `postgresql://` → `postgresql+asyncpg://`) |
+| `JWT_SECRET_KEY` | buat random string panjang (contoh: `openssl rand -hex 32`) |
+| `REDIS_URL` | `redis://localhost:6379/0` (atau kosongkan, app akan pakai memory cache) |
+| `ALLOWED_ORIGINS` | `https://your-app.vercel.app` (isi setelah dapat URL Vercel) |
+
+### F. Deploy
+Klik **Deploy** — Koyeb akan build dan deploy otomatis.
+
+Setelah selesai, Koyeb kasih URL seperti:
+`https://mcn-backend-xxx.koyeb.app`
+
+### G. Jalankan Migrasi Database
+Setelah backend live, jalankan migrasi via endpoint atau manual:
+```bash
+# Test health check dulu
+curl https://mcn-backend-xxx.koyeb.app/health
 ```
-DATABASE_URL        = (paste dari PostgreSQL, ganti postgresql:// dengan postgresql+asyncpg://)
-JWT_SECRET_KEY      = (buat random string, contoh: openssl rand -hex 32)
-REDIS_URL           = redis://localhost:6379/0
-ALLOWED_ORIGINS     = https://YOUR_APP.vercel.app
-```
-
-### E. Dapatkan URL backend
-Setelah deploy sukses, Railway kasih URL seperti:
-`https://your-app.up.railway.app`
 
 ---
 
-## 2. Deploy Frontend ke Vercel
+## 2. Deploy Frontend ke Vercel (Gratis)
 
 ### A. Buat akun Vercel
 1. Buka https://vercel.com
 2. Login dengan GitHub
 
-### B. Deploy frontend
-1. Klik **New Project**
-2. Import repo yang sama
+### B. Import Project
+1. Klik **Add New Project**
+2. Import repo `mcn-dashboard`
 3. **PENTING**: Set **Root Directory** ke `dashboard`
-4. Di bagian **Environment Variables**, tambah:
-   ```
-   NEXT_PUBLIC_API_URL = https://your-app.up.railway.app/api/v1
-   ```
+4. Framework akan terdeteksi otomatis sebagai **Next.js**
+
+### C. Set Environment Variables
+Di bagian **Environment Variables**, tambah:
+
+| Key | Value |
+|-----|-------|
+| `NEXT_PUBLIC_API_URL` | `https://mcn-backend-xxx.koyeb.app/api/v1` |
+
 5. Klik **Deploy**
 
-### C. Dapatkan URL frontend
-Vercel kasih URL seperti: `https://your-app.vercel.app`
+Vercel kasih URL seperti: `https://mcn-dashboard-xxx.vercel.app`
 
 ---
 
-## 3. Update CORS di Railway
+## 3. Update CORS Backend
 
-Setelah dapat URL Vercel, update environment variable di Railway:
+Setelah dapat URL Vercel, update env var di Koyeb:
 ```
-ALLOWED_ORIGINS = https://your-app.vercel.app
+ALLOWED_ORIGINS = https://mcn-dashboard-xxx.vercel.app
 ```
 
 ---
 
-## Update setelah deploy
+## Update Kode Setelah Deploy
 
-Setiap kali ada perubahan kode:
+Setiap kali ada perubahan:
 ```bash
 git add .
 git commit -m "update: deskripsi perubahan"
 git push
 ```
-Railway dan Vercel otomatis rebuild dan deploy ulang.
+Koyeb dan Vercel otomatis rebuild dan deploy ulang.
 
 ---
 
@@ -98,7 +111,14 @@ Railway dan Vercel otomatis rebuild dan deploy ulang.
 
 **Frontend "Gagal terhubung ke server"**
 - Pastikan `NEXT_PUBLIC_API_URL` sudah diset di Vercel
-- Pastikan URL backend Railway sudah benar
+- Pastikan URL backend Koyeb sudah benar (cek `/health`)
 
 **CORS error di browser**
-- Update `ALLOWED_ORIGINS` di Railway dengan URL Vercel yang benar
+- Update `ALLOWED_ORIGINS` di Koyeb dengan URL Vercel yang benar
+
+**Build gagal di Koyeb**
+- Pastikan `requirements.txt` ada di root project
+- Cek log build di Koyeb dashboard
+
+**Redis tidak tersedia**
+- App akan otomatis fallback ke memory cache, tidak masalah untuk production kecil

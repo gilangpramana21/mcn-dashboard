@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, Search, FileText, Ban, 
-  Brain, ShieldCheck, TrendingUp, DollarSign, Play, ShoppingBag, Zap, MessageSquare, Upload, Bot, UserCog,
+  Brain, ShieldCheck, DollarSign, Play, ShoppingBag, Zap, MessageSquare, Upload, Bot, UserCog,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'

@@ -1,0 +1,28 @@
+name: mcn-backend
+services:
+  - name: api
+    type: web
+    git:
+      repository: github.com/gilangpramana21/mcn-dashboard
+      branch: main
+    build:
+      buildpack:
+        build_command: pip install -r requirements.txt
+    run:
+      command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - port: 8000
+        protocol: http
+    health_checks:
+      - path: /health
+        port: 8000
+        protocol: http
+    env:
+      - key: DATABASE_URL
+        value: ""
+      - key: JWT_SECRET_KEY
+        value: "change-me-in-production"
+      - key: REDIS_URL
+        value: "redis://localhost:6379/0"
+      - key: ALLOWED_ORIGINS
+        value: "https://your-frontend.vercel.app"
