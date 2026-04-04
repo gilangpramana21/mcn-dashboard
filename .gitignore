@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.hypothesis/
+
+# Next.js
+dashboard/.next/
+dashboard/node_modules/
+dashboard/.env.local
+
+# Misc
+.DS_Store
+*.log
