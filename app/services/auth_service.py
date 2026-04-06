@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from jose import ExpiredSignatureError, JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt as _bcrypt
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,16 @@ from app.config import get_settings
 from app.exceptions import AuthenticationError, TokenExpiredError, ValidationError
 from app.models.domain import User, UserRole
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _hash_password(password: str) -> str:
+    return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
+
+
+def _verify_password(password: str, hashed: str) -> bool:
+    try:
+        return _bcrypt.checkpw(password.encode(), hashed.encode())
+    except Exception:
+        return False
 
 
 def _now_utc() -> datetime:
@@ -43,7 +52,7 @@ class AuthService:
         if len(password) < 8:
             raise ValidationError("Password harus minimal 8 karakter.")
 
-        password_hash = _pwd_context.hash(password)
+        password_hash = _hash_password(password)
         user_id = str(uuid.uuid4())
         now = _now_utc()
 
@@ -103,7 +112,7 @@ class AuthService:
                 )
 
         # Verify password
-        if not _pwd_context.verify(password, record["password_hash"]):
+        if not _verify_password(password, record["password_hash"]):
             new_attempts = record["failed_login_attempts"] + 1
             if new_attempts >= 5:
                 lock_until = now + timedelta(minutes=15)
