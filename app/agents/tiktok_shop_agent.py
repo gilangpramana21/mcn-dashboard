@@ -19,6 +19,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.tiktok_shop_api import TikTokShopClient
+from app.services.message_learning_service import MessageLearningService
 
 logger = logging.getLogger(__name__)
 
@@ -63,21 +64,29 @@ class TikTokShopAgent:
     def __init__(self, access_token: str, db: AsyncSession) -> None:
         self._client = TikTokShopClient(access_token)
         self._db = db
+        self._msg_learning = MessageLearningService(db)
 
     async def run(self, config: AgentRunConfig) -> AgentRunResult:
         """Jalankan agent dengan konfigurasi yang diberikan."""
         result = AgentRunResult()
 
-        # Ambil template pesan dari DB jika ada
+        # Ambil variasi pesan terbaik dari learning service
         wa_message = config.wa_request_message
-        tmpl_result = await self._db.execute(text("""
-            SELECT content FROM message_templates
-            WHERE message_type = 'request_whatsapp' AND is_active = TRUE
-            LIMIT 1
-        """))
-        tmpl_row = tmpl_result.mappings().first()
-        if tmpl_row:
-            wa_message = tmpl_row["content"]
+        variation_id = None
+        try:
+            wa_message, variation_id = await self._msg_learning.get_best_variation(
+                template_type="request_whatsapp"
+            )
+        except Exception:
+            # Fallback ke template dari DB
+            tmpl_result = await self._db.execute(text("""
+                SELECT content FROM message_templates
+                WHERE message_type = 'request_whatsapp' AND is_active = TRUE
+                LIMIT 1
+            """))
+            tmpl_row = tmpl_result.mappings().first()
+            if tmpl_row:
+                wa_message = tmpl_row["content"]
 
         # Search creators
         page_token = ""
@@ -110,6 +119,7 @@ class TikTokShopAgent:
                     creator=creator,
                     wa_message=wa_message,
                     config=config,
+                    variation_id=variation_id,
                 )
                 if creator_result["is_new"]:
                     result.new_saved += 1
@@ -138,6 +148,7 @@ class TikTokShopAgent:
         creator: Dict[str, Any],
         wa_message: str,
         config: AgentRunConfig,
+        variation_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Proses satu creator: simpan ke DB dan kirim pesan."""
         creator_id = str(creator.get("creator_id", ""))
@@ -213,6 +224,8 @@ class TikTokShopAgent:
                     )
                     tiktok_msg_id = chat_result.get("message_id", "")
                     message_sent = True
+                    # Catat bahwa variasi ini sudah dikirim
+                    await self._msg_learning.record_sent(variation_id)
                 except Exception as e:
                     logger.warning("Gagal kirim chat ke %s: %s", name, e)
 
@@ -221,10 +234,10 @@ class TikTokShopAgent:
                 await self._db.execute(text("""
                     INSERT INTO message_history
                         (id, affiliate_id, affiliate_name, direction, message_content,
-                         from_number, to_number, status, sent_at)
+                         from_number, to_number, status, sent_at, variation_id)
                     VALUES
                         (:id, :affiliate_id, :affiliate_name, 'outbound', :content,
-                         'TikTok Chat', :tiktok_id, :status, NOW())
+                         'TikTok Chat', :tiktok_id, :status, NOW(), :variation_id)
                 """), {
                     "id": tiktok_msg_id or str(uuid.uuid4()),
                     "affiliate_id": affiliate_db_id,
@@ -232,6 +245,7 @@ class TikTokShopAgent:
                     "content": personalized_msg,
                     "tiktok_id": creator_id or username,
                     "status": "sent" if message_sent else "failed",
+                    "variation_id": variation_id,
                 })
             except Exception as e:
                 logger.warning("Gagal catat message_history untuk %s: %s", name, e)

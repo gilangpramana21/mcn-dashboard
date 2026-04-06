@@ -1,12 +1,14 @@
 """Learning Engine API router."""
 from __future__ import annotations
 from typing import Any, Dict, List
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db_session
 from app.agents.learning_engine import LearningEngine
 from app.models.domain import SelectionCriteria
 from app.services.rbac import get_current_user
+from app.services.message_learning_service import MessageLearningService
 
 router = APIRouter(prefix="/learning", tags=["learning"])
 
@@ -51,3 +53,68 @@ async def get_recommendations(
         }
         for r in recs
     ]
+
+
+# ── Message Variation Learning ──────────────────────────────────────────────
+
+class AddVariationRequest(BaseModel):
+    template_type: str = "request_whatsapp"
+    content: str
+
+
+class RecordReplyRequest(BaseModel):
+    variation_id: str
+
+
+@router.get("/message-variations")
+async def get_message_variations(
+    template_type: str = "request_whatsapp",
+    db: AsyncSession = Depends(get_db_session),
+    _: Dict[str, Any] = Depends(get_current_user),
+) -> List[Dict]:
+    """Ambil semua variasi pesan beserta statistik reply rate."""
+    svc = MessageLearningService(db)
+    stats = await svc.get_variation_stats(template_type)
+    return [
+        {
+            "id": str(s["id"]),
+            "content": s["content"],
+            "send_count": s["send_count"],
+            "reply_count": s["reply_count"],
+            "reply_rate": round(float(s["reply_rate"] or 0) * 100, 1),  # dalam persen
+            "is_active": s["is_active"],
+            "created_at": s["created_at"].isoformat() if s.get("created_at") else None,
+        }
+        for s in stats
+    ]
+
+
+@router.post("/message-variations")
+async def add_message_variation(
+    body: AddVariationRequest,
+    db: AsyncSession = Depends(get_db_session),
+    _: Dict[str, Any] = Depends(get_current_user),
+) -> Dict:
+    """Tambah variasi pesan baru."""
+    if not body.content.strip():
+        raise HTTPException(status_code=400, detail="Konten pesan tidak boleh kosong")
+    svc = MessageLearningService(db)
+    try:
+        variation_id = await svc.add_variation(body.template_type, body.content.strip())
+        await db.commit()
+        return {"id": variation_id, "message": "Variasi berhasil ditambahkan"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/message-variations/record-reply")
+async def record_message_reply(
+    body: RecordReplyRequest,
+    db: AsyncSession = Depends(get_db_session),
+    _: Dict[str, Any] = Depends(get_current_user),
+) -> Dict:
+    """Catat bahwa pesan dengan variasi ini dibalas (update reply rate)."""
+    svc = MessageLearningService(db)
+    await svc.record_reply(body.variation_id)
+    await db.commit()
+    return {"message": "Reply berhasil dicatat"}
