@@ -3,9 +3,10 @@ import { toast } from 'sonner'
 import { getToken, removeToken } from './auth'
 
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || '/backend/api/v1',
   headers: {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
   },
 })
 

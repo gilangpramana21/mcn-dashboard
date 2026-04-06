@@ -1,10 +1,22 @@
 /** @type {import('next').NextConfig} */
+const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+
 const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'ngrok-skip-browser-warning', value: 'true' },
+        ],
+      },
+    ]
+  },
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*',
+        source: '/backend/:path*',
+        destination: `${backendUrl}/:path*`,
       },
     ]
   },
