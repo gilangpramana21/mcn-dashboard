@@ -92,8 +92,6 @@ async def oauth_callback_get(
 
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/agent?oauth=success")
-
-
 @router.get("/auth-url")
 async def get_auth_url(
     redirect_uri: str = Query(..., description="URL callback setelah seller authorize"),
