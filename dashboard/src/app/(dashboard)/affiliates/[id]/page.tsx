@@ -210,6 +210,18 @@ export default function AffiliateDetailPage({ params }: { params: { id: string }
               </span>
             </div>
             {aff.location && <p className="text-sm text-gray-500 mt-0.5">{aff.location}</p>}
+            {aff.tiktok_username && (
+              <a
+                href={aff.tiktok_profile_url || `https://www.tiktok.com/@${aff.tiktok_username.replace('@','')}`}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 mt-1 text-xs text-gray-400 hover:text-white transition-colors"
+              >
+                <span className="rounded-full bg-[#1a1a1a] border border-[#2f2f2f] px-2 py-0.5 text-[10px] font-medium text-gray-300">
+                  TikTok
+                </span>
+                {aff.tiktok_username}
+              </a>
+            )}
             <div className="mt-2 grid grid-cols-3 gap-4 text-sm">
               <div>
                 <span className="text-gray-500">Rating</span>

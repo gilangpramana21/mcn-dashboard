@@ -395,9 +395,16 @@ export default function AffiliatesPage() {
                             {a.name?.charAt(0)?.toUpperCase() ?? '?'}
                           </div>
                           <div>
-                            <p className="text-white font-medium text-sm">{a.name}</p>
-                            {a.content_categories?.length > 0 && (
-                              <p className="text-gray-600 text-xs">{a.content_categories[0]}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-white font-medium text-sm">{a.name}</p>
+                              {a.tiktok_username && (
+                                <span className="rounded-full bg-[#1a1a1a] border border-[#2f2f2f] px-1.5 py-0.5 text-[10px] text-gray-400">
+                                  TikTok
+                                </span>
+                              )}
+                            </div>
+                            {a.tiktok_username && (
+                              <p className="text-gray-600 text-xs">{a.tiktok_username}</p>
                             )}
                           </div>
                         </div>

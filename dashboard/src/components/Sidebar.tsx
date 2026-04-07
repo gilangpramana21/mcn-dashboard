@@ -13,34 +13,34 @@ const NAV_SECTIONS = [
   {
     label: 'Analytics',
     items: [
-      { href: '/', label: 'Dashboard', icon: LayoutDashboard, role: null, waOnly: false },
-      { href: '/creator-intelligence', label: 'Analitik Affiliator', icon: Users, role: null, waOnly: false },
-      { href: '/content-analytics', label: 'Content Analytics', icon: Play, role: null, waOnly: false },
-      { href: '/product-analytics', label: 'Product Analytics', icon: ShoppingBag, role: null, waOnly: false },
-      { href: '/revenue-insights', label: 'Revenue Insights', icon: DollarSign, role: null, waOnly: false },
+      { href: '/', label: 'Dashboard', icon: LayoutDashboard, role: null, waOnly: false, importOnly: false },
+      { href: '/creator-intelligence', label: 'Analitik Affiliator', icon: Users, role: null, waOnly: false, importOnly: false },
+      { href: '/content-analytics', label: 'Content Analytics', icon: Play, role: null, waOnly: false, importOnly: false },
+      { href: '/product-analytics', label: 'Product Analytics', icon: ShoppingBag, role: null, waOnly: false, importOnly: false },
+      { href: '/revenue-insights', label: 'Revenue Insights', icon: DollarSign, role: null, waOnly: false, importOnly: false },
     ],
   },
   {
     label: 'Outreach',
     items: [
-      { href: '/affiliates', label: 'Cari Affiliasi', icon: Search, role: null, waOnly: false },
-      { href: '/import', label: 'Import Affiliator', icon: Upload, role: 'manager', waOnly: false },
-      { href: '/messages', label: 'History Pesan', icon: MessageSquare, role: null, waOnly: true },
-      { href: '/templates', label: 'Template Pesan', icon: FileText, role: 'manager', waOnly: true },
-      { href: '/blacklist', label: 'Daftar Hitam', icon: Ban, role: 'manager', waOnly: false },
+      { href: '/affiliates', label: 'Cari Affiliasi', icon: Search, role: null, waOnly: false, importOnly: false },
+      { href: '/import', label: 'Import Affiliator', icon: Upload, role: 'manager', waOnly: false, importOnly: true },
+      { href: '/messages', label: 'History Pesan', icon: MessageSquare, role: null, waOnly: true, importOnly: false },
+      { href: '/templates', label: 'Template Pesan', icon: FileText, role: 'manager', waOnly: true, importOnly: false },
+      { href: '/blacklist', label: 'Daftar Hitam', icon: Ban, role: 'manager', waOnly: false, importOnly: false },
     ],
   },
   {
     label: 'AI',
     items: [
-      { href: '/agent', label: 'TikTok Shop Agent', icon: Bot, role: 'manager', waOnly: false },
-      { href: '/learning', label: 'AI Learning', icon: Brain, role: null, waOnly: false },
+      { href: '/agent', label: 'TikTok Shop Agent', icon: Bot, role: 'manager', waOnly: false, importOnly: false },
+      { href: '/learning', label: 'AI Learning', icon: Brain, role: null, waOnly: false, importOnly: false },
     ],
   },
   {
     label: 'Pengaturan',
     items: [
-      { href: '/users', label: 'Manajemen Akun', icon: UserCog, role: 'admin', waOnly: false },
+      { href: '/users', label: 'Manajemen Akun', icon: UserCog, role: 'admin', waOnly: false, importOnly: false },
     ],
   },
 ]
@@ -61,8 +61,9 @@ export function Sidebar() {
   const pathname = usePathname()
   const { role, isManager, isAdmin } = useAuth()
 
-  function isVisible(itemRole: string | null, waOnly: boolean) {
+  function isVisible(itemRole: string | null, waOnly: boolean, importOnly: boolean) {
     if (waOnly && !features.showWhatsApp) return false
+    if (importOnly && !features.showImport) return false
     if (itemRole === null) return true
     if (itemRole === 'manager') return isManager
     if (itemRole === 'admin') return isAdmin
@@ -82,7 +83,7 @@ export function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-4">
         {NAV_SECTIONS.map(section => {
-          const visibleItems = section.items.filter(item => isVisible(item.role, item.waOnly))
+          const visibleItems = section.items.filter(item => isVisible(item.role, item.waOnly, item.importOnly))
           if (visibleItems.length === 0) return null
           return (
             <div key={section.label}>
