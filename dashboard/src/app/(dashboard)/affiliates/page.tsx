@@ -290,15 +290,14 @@ export default function AffiliatesPage() {
           </div>
         </FilterSection>
 
-        <FilterSection title="Status WhatsApp">
-          {features.showWhatsApp && (
-          <RadioGroup
-            items={[{ label: 'Semua', value: '' }, { label: 'Punya WA', value: 'yes' }, { label: 'Belum Ada WA', value: 'no' }]}
-            selected={hasWhatsapp} onSelect={setHasWhatsapp}
-          />
-          )}
-          {!features.showWhatsApp && <p className="text-xs text-gray-600">Fitur tidak tersedia</p>}
-        </FilterSection>
+        {features.showWhatsApp && (
+          <FilterSection title="Status WhatsApp">
+            <RadioGroup
+              items={[{ label: 'Semua', value: '' }, { label: 'Punya WA', value: 'yes' }, { label: 'Belum Ada WA', value: 'no' }]}
+              selected={hasWhatsapp} onSelect={setHasWhatsapp}
+            />
+          </FilterSection>
+        )}
 
         <FilterSection title="Lokasi">
           <TagGroup items={LOCATIONS} selected={locations}
