@@ -57,6 +57,43 @@ async def _get_active_token(db: AsyncSession) -> Optional[str]:
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
+@router.get("/callback")
+async def oauth_callback_get(
+    code: str = Query(...),
+    state: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db_session),
+) -> Dict[str, Any]:
+    """Handle redirect dari TikTok OAuth — tukar code dengan token."""
+    from app.integrations.tiktok_shop_api import TikTokShopOAuth
+    import uuid
+
+    oauth = TikTokShopOAuth()
+    try:
+        token_data = await oauth.exchange_code(code)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Gagal tukar token: {str(e)}")
+
+    access_token = token_data.get("access_token", "")
+    refresh_token = token_data.get("refresh_token", "")
+    expires_in = int(token_data.get("access_token_expire_in", 3600))
+
+    await db.execute(text("""
+        INSERT INTO tiktok_shop_tokens (id, access_token, refresh_token, expires_at, shop_id)
+        VALUES (:id, :access_token, :refresh_token,
+                NOW() + (:expires * INTERVAL '1 second'), :shop_id)
+    """), {
+        "id": str(uuid.uuid4()),
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "expires": expires_in,
+        "shop_id": token_data.get("seller_id"),
+    })
+    await db.commit()
+
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/agent?oauth=success")
+
+
 @router.get("/auth-url")
 async def get_auth_url(
     redirect_uri: str = Query(..., description="URL callback setelah seller authorize"),
