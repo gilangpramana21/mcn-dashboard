@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, SlidersHorizontal, X, ChevronDown, ChevronUp, RotateCcw, MessageCircle, Phone, Upload, Check } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
+import { features } from '@/lib/features'
 
 // ─── Filter Data ─────────────────────────────────────────────────────────────
 
@@ -290,10 +291,13 @@ export default function AffiliatesPage() {
         </FilterSection>
 
         <FilterSection title="Status WhatsApp">
+          {features.showWhatsApp && (
           <RadioGroup
             items={[{ label: 'Semua', value: '' }, { label: 'Punya WA', value: 'yes' }, { label: 'Belum Ada WA', value: 'no' }]}
             selected={hasWhatsapp} onSelect={setHasWhatsapp}
           />
+          )}
+          {!features.showWhatsApp && <p className="text-xs text-gray-600">Fitur tidak tersedia</p>}
         </FilterSection>
 
         <FilterSection title="Lokasi">
@@ -379,7 +383,7 @@ export default function AffiliatesPage() {
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">Engagement</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Lokasi</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Kategori</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500">Kontak</th>
+                    {features.showWhatsApp && <th className="px-4 py-3 text-center text-xs font-medium text-gray-500">Kontak</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -418,6 +422,7 @@ export default function AffiliatesPage() {
                           )}
                         </div>
                       </td>
+                      {features.showWhatsApp && (
                       <td className="px-4 py-3 text-center">
                         {a.has_whatsapp ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-green-900/30 px-2 py-0.5 text-xs text-green-400">
@@ -430,6 +435,7 @@ export default function AffiliatesPage() {
                           </button>
                         )}
                       </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

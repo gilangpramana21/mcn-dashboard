@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import { Upload, FileText, CheckCircle, AlertCircle, X, Download, MessageCircle, Phone, Loader2 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
+import { features } from '@/lib/features'
 
 interface ParsedRow {
   name: string
@@ -151,18 +152,21 @@ export default function ImportPage() {
       <div>
         <h1 className="text-xl font-semibold text-white">Import Data Affiliator</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Upload CSV dari TikTok Seller Center. Sistem otomatis kirim pesan TikTok chat ke affiliator yang belum punya nomor WA.
+          Upload CSV dari TikTok Seller Center. Sistem otomatis kirim pesan TikTok chat ke affiliator setelah import.
         </p>
       </div>
 
       {/* Alur kerja */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
+      <div className={`grid gap-3 ${features.showWhatsApp ? 'grid-cols-4' : 'grid-cols-2'}`}>
+        {(features.showWhatsApp ? [
           { step: '1', label: 'Export dari Seller Center', desc: 'Download data affiliator sebagai CSV', icon: '📥' },
           { step: '2', label: 'Upload CSV', desc: 'Import ke sistem ini', icon: '📤' },
           { step: '3', label: 'Auto TikTok Chat', desc: 'Sistem kirim pesan minta nomor WA', icon: '💬' },
           { step: '4', label: 'Auto WhatsApp', desc: 'Setelah nomor WA diisi, langsung kirim undangan', icon: '📱' },
-        ].map(s => (
+        ] : [
+          { step: '1', label: 'Export dari Seller Center', desc: 'Download data affiliator sebagai CSV', icon: '📥' },
+          { step: '2', label: 'Upload CSV', desc: 'Import ke sistem ini', icon: '📤' },
+        ]).map(s => (
           <div key={s.step} className="rounded-xl border border-[#1f1f1f] bg-[#111111] p-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="h-5 w-5 rounded-full bg-violet-600/20 text-violet-400 text-xs flex items-center justify-center font-bold">{s.step}</span>
@@ -207,7 +211,7 @@ export default function ImportPage() {
                 <FileText className="h-8 w-8 text-violet-400 shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-white">{fileName}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{validCount} affiliator valid · {withWA} sudah punya WA · {withoutWA} belum punya WA</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{validCount} affiliator valid{features.showWhatsApp ? ` · ${withWA} sudah punya WA · ${withoutWA} belum punya WA` : ''}</p>
                 </div>
                 <button onClick={() => { setRows([]); setFileName('') }} className="text-gray-500 hover:text-white">
                   <X className="h-4 w-4" />
@@ -215,6 +219,7 @@ export default function ImportPage() {
               </div>
 
               {/* Auto-send option */}
+              {features.showWhatsApp && (
               <div className="rounded-xl border border-[#1f1f1f] bg-[#111111] p-4">
                 <div className="flex items-start gap-3">
                   <button onClick={() => setAutoSend(!autoSend)}
@@ -236,6 +241,7 @@ export default function ImportPage() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Preview table */}
               <div className="rounded-xl border border-[#1f1f1f] overflow-hidden">
@@ -251,7 +257,7 @@ export default function ImportPage() {
                         <th className="px-3 py-2 text-right text-gray-500">Followers</th>
                         <th className="px-3 py-2 text-left text-gray-500">Kategori</th>
                         <th className="px-3 py-2 text-left text-gray-500">Lokasi</th>
-                        <th className="px-3 py-2 text-center text-gray-500">WA</th>
+                        {features.showWhatsApp && <th className="px-3 py-2 text-center text-gray-500">WA</th>}
                         <th className="px-3 py-2 text-center text-gray-500">Status</th>
                       </tr>
                     </thead>
@@ -263,6 +269,7 @@ export default function ImportPage() {
                           <td className="px-3 py-2 text-right text-gray-300">{formatFollowers(row.follower_count)}</td>
                           <td className="px-3 py-2 text-gray-400">{row.content_categories.slice(0, 1).join(', ') || '—'}</td>
                           <td className="px-3 py-2 text-gray-400">{row.location || '—'}</td>
+                          {features.showWhatsApp && (
                           <td className="px-3 py-2 text-center">
                             {row.phone_number ? (
                               <span className="text-green-400">✓</span>
@@ -270,6 +277,7 @@ export default function ImportPage() {
                               <span className="text-gray-600">—</span>
                             )}
                           </td>
+                          )}
                           <td className="px-3 py-2 text-center">
                             {row._valid ? (
                               <span className="text-green-400">✓</span>
