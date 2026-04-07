@@ -222,6 +222,14 @@ export default function AffiliateDetailPage({ params }: { params: { id: string }
                 {aff.tiktok_username}
               </a>
             )}
+            {aff.tiktok_creator_id && (
+              <div className="inline-flex items-center gap-1.5 mt-1">
+                <span className="rounded-full bg-[#1a1a1a] border border-teal-800/50 px-2 py-0.5 text-[10px] font-medium text-teal-400">
+                  TikTok Shop ID
+                </span>
+                <span className="text-xs text-gray-400 font-mono">{aff.tiktok_creator_id}</span>
+              </div>
+            )}
             <div className="mt-2 grid grid-cols-3 gap-4 text-sm">
               <div>
                 <span className="text-gray-500">Rating</span>

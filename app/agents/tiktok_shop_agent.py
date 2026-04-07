@@ -162,12 +162,18 @@ class TikTokShopAgent:
         if not name:
             return {"is_new": False, "message_sent": False, "error": "Creator tanpa nama dilewati"}
 
-        # Cek apakah sudah ada di DB
+        # Cek apakah sudah ada di DB (prioritaskan match berdasarkan tiktok_creator_id)
         existing = await self._db.execute(text("""
             SELECT id, phone_number FROM influencers
-            WHERE tiktok_user_id = :tiktok_id OR LOWER(name) = :name
+            WHERE tiktok_creator_id = :creator_id
+               OR tiktok_user_id = :tiktok_user_id
+               OR LOWER(name) = :name
             LIMIT 1
-        """), {"tiktok_id": creator_id or username, "name": name.lower()})
+        """), {
+            "creator_id": creator_id or "",
+            "tiktok_user_id": username or creator_id or "",
+            "name": name.lower(),
+        })
         existing_row = existing.mappings().first()
 
         affiliate_db_id = None
@@ -189,17 +195,20 @@ class TikTokShopAgent:
             try:
                 await self._db.execute(text("""
                     INSERT INTO influencers
-                        (id, name, tiktok_user_id, follower_count, engagement_rate,
-                         content_categories, location, has_whatsapp, status,
-                         creator_type, created_at, updated_at)
+                        (id, name, tiktok_user_id, tiktok_creator_id, follower_count,
+                         engagement_rate, content_categories, location, has_whatsapp,
+                         status, creator_type, data_source, tiktok_synced_at,
+                         created_at, updated_at)
                     VALUES
-                        (:id, :name, :tiktok_id, :followers, :engagement,
-                         cast(:categories as jsonb), :location, FALSE, 'ACTIVE',
-                         'affiliator', NOW(), NOW())
+                        (:id, :name, :tiktok_user_id, :tiktok_creator_id, :followers,
+                         :engagement, cast(:categories as jsonb), :location, FALSE,
+                         'ACTIVE', 'affiliator', 'tiktok_shop_search', NOW(),
+                         NOW(), NOW())
                 """), {
                     "id": affiliate_db_id,
                     "name": name,
-                    "tiktok_id": creator_id or username,
+                    "tiktok_user_id": username or creator_id,
+                    "tiktok_creator_id": creator_id or None,
                     "followers": followers,
                     "engagement": engagement,
                     "categories": json.dumps(categories if isinstance(categories, list) else []),

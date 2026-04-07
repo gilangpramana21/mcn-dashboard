@@ -52,6 +52,9 @@ class AffiliateDetailResponse(BaseModel):
     contact_channel: str
     whatsapp_collection_status: Optional[str]
     tiktok_profile_url: Optional[str]
+    tiktok_creator_id: Optional[str]
+    data_source: Optional[str]
+    tiktok_synced_at: Optional[str]
 
 
 class ContactRequest(BaseModel):
@@ -252,9 +255,11 @@ async def get_affiliate_detail(
         text(
             """
             SELECT id, name, follower_count, engagement_rate,
-                   content_categories, location, phone_number, tiktok_user_id
+                   content_categories, location, phone_number, tiktok_user_id,
+                   tiktok_creator_id, data_source, tiktok_synced_at
             FROM influencers
             WHERE tiktok_user_id = :affiliate_id OR id::text = :affiliate_id
+               OR tiktok_creator_id = :affiliate_id
             LIMIT 1
             """
         ),
@@ -292,6 +297,9 @@ async def get_affiliate_detail(
         f"https://www.tiktok.com/@{tiktok_user_id}" if tiktok_user_id else None
     )
 
+    tiktok_synced_raw = row.get("tiktok_synced_at")
+    tiktok_synced_str = tiktok_synced_raw.isoformat() if tiktok_synced_raw else None
+
     return AffiliateDetailResponse(
         id=str(row["id"]),
         name=row["name"],
@@ -305,6 +313,9 @@ async def get_affiliate_detail(
         contact_channel=contact_channel,
         whatsapp_collection_status=wa_status,
         tiktok_profile_url=tiktok_profile_url,
+        tiktok_creator_id=row.get("tiktok_creator_id"),
+        data_source=row.get("data_source"),
+        tiktok_synced_at=tiktok_synced_str,
     )
 
 

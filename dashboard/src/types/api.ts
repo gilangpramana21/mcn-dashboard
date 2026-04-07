@@ -42,6 +42,9 @@ export interface AffiliateDetailResponse {
   whatsapp_collection_status: string | null
   tiktok_profile_url: string | null
   tiktok_username: string | null
+  tiktok_creator_id: string | null
+  data_source: string | null
+  tiktok_synced_at: string | null
 }
 
 export type CampaignStatus = 'ACTIVE' | 'DRAFT' | 'PAUSED' | 'STOPPED' | 'COMPLETED'
