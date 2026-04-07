@@ -49,7 +49,10 @@ export function useAffiliates(filters: InfluencerFilters) {
 export function useAffiliateDetail(id: string) {
   return useQuery({
     queryKey: queryKeys.affiliateDetail(id),
-    queryFn: () => apiClient.get<{ data: AffiliateDetailResponse }>(`/affiliates/${id}`).then(r => r.data),
+    queryFn: () =>
+      apiClient.get<AffiliateDetailResponse>(`/affiliates/${id}`).then(r => ({
+        data: r.data,
+      })),
     enabled: !!id,
   })
 }

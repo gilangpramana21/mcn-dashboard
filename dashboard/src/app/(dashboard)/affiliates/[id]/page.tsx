@@ -170,10 +170,11 @@ export default function AffiliateDetailPage({ params }: { params: { id: string }
     )
   }
 
-  if (is404 || (!isLoading && !data?.data && error)) {
+  if (is404 || (!isLoading && error)) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-6">
         <p className="text-xl font-bold text-white">Affiliator tidak ditemukan</p>
+        <p className="text-sm text-gray-500">{(error as any)?.message || 'Terjadi kesalahan'}</p>
         <button onClick={() => router.back()} className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">
           ← Kembali
         </button>
@@ -182,6 +183,17 @@ export default function AffiliateDetailPage({ params }: { params: { id: string }
   }
 
   const aff = data?.data
+  if (!isLoading && !aff) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-6">
+        <p className="text-xl font-bold text-white">Data tidak tersedia</p>
+        <button onClick={() => router.back()} className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-700">
+          ← Kembali
+        </button>
+      </div>
+    )
+  }
+
   if (!aff) return null
 
   const dateRange = `${new Date(Date.now() - 30 * 86400000).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} (GMT+7)`

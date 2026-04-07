@@ -52,6 +52,7 @@ class AffiliateDetailResponse(BaseModel):
     contact_channel: str
     whatsapp_collection_status: Optional[str]
     tiktok_profile_url: Optional[str]
+    tiktok_username: Optional[str]
     tiktok_creator_id: Optional[str]
     data_source: Optional[str]
     tiktok_synced_at: Optional[str]
@@ -313,6 +314,7 @@ async def get_affiliate_detail(
         contact_channel=contact_channel,
         whatsapp_collection_status=wa_status,
         tiktok_profile_url=tiktok_profile_url,
+        tiktok_username=tiktok_user_id,
         tiktok_creator_id=row.get("tiktok_creator_id"),
         data_source=row.get("data_source"),
         tiktok_synced_at=tiktok_synced_str,
