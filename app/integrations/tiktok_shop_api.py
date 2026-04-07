@@ -145,7 +145,7 @@ class TikTokShopClient:
 
         result = await self._request(
             "POST",
-            "/api/v2/affiliate/creator/search",
+            "/api/v1/affiliate/creator/search",
             params=params,
             json=body,
         )
