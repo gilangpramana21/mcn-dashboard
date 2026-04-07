@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useAffiliateDetail } from '@/hooks/useAffiliates'
 import { apiClient } from '@/lib/api-client'
 import { formatCurrency, formatFollowerCount } from '@/lib/formatters'
+import { features } from '@/lib/features'
 import {
   ArrowLeft, ExternalLink, Star, ShoppingBag,
   Users, TrendingUp, DollarSign, Play, Radio,
@@ -233,7 +234,7 @@ export default function AffiliateDetailPage({ params }: { params: { id: string }
             </div>
           )}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Chat dropdown */}
+            {/* Chat dropdown - hanya tampil jika showWhatsApp atau untuk Seller Center */}
             <div className="relative">
               <button
                 onClick={() => setShowChatMenu(v => !v)}
@@ -245,27 +246,29 @@ export default function AffiliateDetailPage({ params }: { params: { id: string }
               </button>
               {showChatMenu && (
                 <div className="absolute right-0 top-full mt-1 w-52 rounded-xl border border-[#1f1f1f] bg-[#111111] shadow-xl z-20 overflow-hidden">
-                  {aff.phone_number ? (
-                    <button
-                      onClick={() => { setChatModal('whatsapp'); setShowChatMenu(false) }}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-[#1a1a1a] hover:text-white transition-colors"
-                    >
-                      <Phone className="h-4 w-4 text-green-400" />
-                      <div className="text-left">
-                        <p className="font-medium">WhatsApp</p>
-                        <p className="text-xs text-gray-500">{aff.phone_number}</p>
+                  {features.showWhatsApp && (
+                    aff.phone_number ? (
+                      <button
+                        onClick={() => { setChatModal('whatsapp'); setShowChatMenu(false) }}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-[#1a1a1a] hover:text-white transition-colors"
+                      >
+                        <Phone className="h-4 w-4 text-green-400" />
+                        <div className="text-left">
+                          <p className="font-medium">WhatsApp</p>
+                          <p className="text-xs text-gray-500">{aff.phone_number}</p>
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-3 px-4 py-3 text-sm text-gray-600 cursor-not-allowed">
+                        <Phone className="h-4 w-4" />
+                        <div className="text-left">
+                          <p>WhatsApp</p>
+                          <p className="text-xs">Nomor belum tersedia</p>
+                        </div>
                       </div>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-3 px-4 py-3 text-sm text-gray-600 cursor-not-allowed">
-                      <Phone className="h-4 w-4" />
-                      <div className="text-left">
-                        <p>WhatsApp</p>
-                        <p className="text-xs">Nomor belum tersedia</p>
-                      </div>
-                    </div>
+                    )
                   )}
-                  <div className="border-t border-[#1f1f1f]" />
+                  {features.showWhatsApp && <div className="border-t border-[#1f1f1f]" />}
                   <button
                     onClick={() => { setChatModal('seller_center'); setShowChatMenu(false) }}
                     className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-[#1a1a1a] hover:text-white transition-colors"
@@ -540,7 +543,7 @@ export default function AffiliateDetailPage({ params }: { params: { id: string }
           </div>
           <p className="text-xs text-gray-400 mb-3">
             Kepada: <span className="text-white font-medium">{aff?.name}</span>
-            {chatModal === 'whatsapp' && aff?.phone_number && (
+            {features.showWhatsApp && chatModal === 'whatsapp' && aff?.phone_number && (
               <span className="text-gray-500"> · {aff.phone_number}</span>
             )}
           </p>
