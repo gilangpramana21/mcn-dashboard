@@ -18,6 +18,7 @@ export interface AffiliateCardResponse {
   has_whatsapp: boolean
   gmv_total?: number
   rank?: number
+  tiktok_username?: string | null
 }
 
 export interface PaginatedAffiliateResponse {
@@ -40,6 +41,7 @@ export interface AffiliateDetailResponse {
   contact_channel: string
   whatsapp_collection_status: string | null
   tiktok_profile_url: string | null
+  tiktok_username: string | null
 }
 
 export type CampaignStatus = 'ACTIVE' | 'DRAFT' | 'PAUSED' | 'STOPPED' | 'COMPLETED'
