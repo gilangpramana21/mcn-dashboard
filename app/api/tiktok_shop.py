@@ -78,11 +78,10 @@ async def oauth_callback_get(
     expires_in = int(token_data.get("access_token_expire_in", 3600))
 
     await db.execute(text("""
-        INSERT INTO tiktok_shop_tokens (id, access_token, refresh_token, expires_at, shop_id)
-        VALUES (:id, :access_token, :refresh_token,
+        INSERT INTO tiktok_shop_tokens (access_token, refresh_token, expires_at, shop_id)
+        VALUES (:access_token, :refresh_token,
                 NOW() + (:expires * INTERVAL '1 second'), :shop_id)
     """), {
-        "id": str(uuid.uuid4()),
         "access_token": access_token,
         "refresh_token": refresh_token,
         "expires": expires_in,
