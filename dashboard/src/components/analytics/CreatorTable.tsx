@@ -1,4 +1,4 @@
-import { ArrowUpDown, ArrowUp, ArrowDown, MessageCircle } from 'lucide-react'
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 
 interface CreatorItem {
   id: string
@@ -76,7 +76,6 @@ export function CreatorTable({ data, sortBy, onSort, isLoading, onRowClick }: Cr
             <th onClick={() => onSort('creator_score')} className="px-5 py-3 text-right text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-300">
               <div className="flex items-center justify-end gap-1.5">Score <SortIcon field="creator_score" /></div>
             </th>
-            <th className="px-5 py-3 text-center text-xs font-medium text-gray-500">WA</th>
             <th className="px-5 py-3 text-left text-xs font-medium text-gray-500">Kategori</th>
             <th className="px-5 py-3 text-center text-xs font-medium text-gray-500">Role</th>
           </tr>
@@ -96,11 +95,6 @@ export function CreatorTable({ data, sortBy, onSort, isLoading, onRowClick }: Cr
                 {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(creator.estimated_revenue)}
               </td>
               <td className="px-5 py-3 text-right text-green-400 font-semibold">{creator.creator_score.toFixed(2)}</td>
-              <td className="px-5 py-3 text-center">
-                {creator.has_whatsapp
-                  ? <MessageCircle className="h-4 w-4 text-green-400 mx-auto" />
-                  : <span className="text-gray-700 text-xs">—</span>}
-              </td>
               <td className="px-5 py-3">
                 <div className="flex flex-wrap gap-1 max-w-[180px]">
                   {(creator.content_categories ?? []).slice(0, 2).map(cat => (
