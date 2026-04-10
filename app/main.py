@@ -19,6 +19,7 @@ from app.api import (
 from app.api.analytics import router as analytics_router
 from app.api.messages import router as messages_router
 from app.api.tiktok_shop import router as tiktok_shop_router
+from app.api.brands import router as brands_router
 from app.database import engine
 
 logger = logging.getLogger(__name__)
@@ -132,6 +133,7 @@ app.include_router(learning_router, prefix=_PREFIX)
 app.include_router(analytics_router, prefix=_PREFIX)
 app.include_router(messages_router, prefix=_PREFIX)
 app.include_router(tiktok_shop_router, prefix=_PREFIX)
+app.include_router(brands_router, prefix=_PREFIX)
 
 
 # ---------------------------------------------------------------------------
