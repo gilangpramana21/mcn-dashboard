@@ -40,6 +40,7 @@ const NAV_SECTIONS = [
   {
     label: 'Pengaturan',
     items: [
+      { href: '/brands', label: 'Manajemen Brand', icon: ShoppingBag, role: 'manager', waOnly: false, importOnly: false },
       { href: '/users', label: 'Manajemen Akun', icon: UserCog, role: 'admin', waOnly: false, importOnly: false },
     ],
   },
