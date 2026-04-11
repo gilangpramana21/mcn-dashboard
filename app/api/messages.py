@@ -180,15 +180,17 @@ async def get_conversations(
             COUNT(am.affiliate_id) AS message_count,
             MAX(am.msg_time) AS last_message_at,
             (SELECT message_content FROM all_messages am2
-             WHERE am2.affiliate_id = i.id::text ORDER BY am2.msg_time DESC LIMIT 1) AS last_message,
+             WHERE am2.affiliate_id = i.id::varchar ORDER BY am2.msg_time DESC LIMIT 1) AS last_message,
             SUM(am.is_unread) AS unread_count
         FROM influencers i
-        LEFT JOIN all_messages am ON am.affiliate_id = i.id::text
+        LEFT JOIN all_messages am ON am.affiliate_id = i.id::varchar
         {where}
         GROUP BY i.id, i.name, i.content_categories, i.has_whatsapp
         HAVING COUNT(am.affiliate_id) > 0
         ORDER BY MAX(am.msg_time) DESC NULLS LAST
-    """), params)    rows = result.mappings().all()
+    """), params)
+
+    rows = result.mappings().all()
     items = []
     for row in rows:
         cats = row["content_categories"] or []
@@ -243,7 +245,6 @@ async def get_message_history(
         ORDER BY sent_at ASC
         LIMIT :limit OFFSET :offset
     """), {"affiliate_id": affiliate_id, "limit": page_size, "offset": offset})
-
     rows = result.mappings().all()
     return [
         MessageItem(
