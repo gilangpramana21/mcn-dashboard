@@ -152,25 +152,43 @@ async def get_conversations(
         params["search"] = f"%{search.lower()}%"
 
     result = await db.execute(text(f"""
+        WITH all_messages AS (
+            -- Pesan outbound dari message_history
+            SELECT
+                affiliate_id::text,
+                affiliate_name,
+                message_content,
+                sent_at AS msg_time,
+                CASE WHEN direction = 'inbound' AND status != 'read' THEN 1 ELSE 0 END AS is_unread
+            FROM message_history
+            UNION ALL
+            -- Pesan inbound dari incoming_messages (simulasi)
+            SELECT
+                affiliate_id::text,
+                affiliate_name,
+                message_content,
+                received_at AS msg_time,
+                CASE WHEN is_read = FALSE THEN 1 ELSE 0 END AS is_unread
+            FROM incoming_messages
+            WHERE affiliate_id IS NOT NULL
+        )
         SELECT
             i.id AS affiliate_id,
             i.name AS affiliate_name,
             i.content_categories,
             i.has_whatsapp,
-            COUNT(mh.id) AS message_count,
-            MAX(mh.sent_at) AS last_message_at,
-            (SELECT message_content FROM message_history
-             WHERE affiliate_id = i.id ORDER BY sent_at DESC LIMIT 1) AS last_message,
-            SUM(CASE WHEN mh.direction = 'inbound' AND mh.status != 'read' THEN 1 ELSE 0 END) AS unread_count
+            COUNT(am.affiliate_id) AS message_count,
+            MAX(am.msg_time) AS last_message_at,
+            (SELECT message_content FROM all_messages am2
+             WHERE am2.affiliate_id = i.id::text ORDER BY am2.msg_time DESC LIMIT 1) AS last_message,
+            SUM(am.is_unread) AS unread_count
         FROM influencers i
-        LEFT JOIN message_history mh ON mh.affiliate_id = i.id
+        LEFT JOIN all_messages am ON am.affiliate_id = i.id::text
         {where}
         GROUP BY i.id, i.name, i.content_categories, i.has_whatsapp
-        HAVING COUNT(mh.id) > 0
-        ORDER BY MAX(mh.sent_at) DESC NULLS LAST
-    """), params)
-
-    rows = result.mappings().all()
+        HAVING COUNT(am.affiliate_id) > 0
+        ORDER BY MAX(am.msg_time) DESC NULLS LAST
+    """), params)    rows = result.mappings().all()
     items = []
     for row in rows:
         cats = row["content_categories"] or []
@@ -212,7 +230,17 @@ async def get_message_history(
         FROM message_history mh
         LEFT JOIN whatsapp_numbers wn ON wn.id = mh.wa_number_id
         WHERE mh.affiliate_id = :affiliate_id
-        ORDER BY mh.sent_at ASC
+        UNION ALL
+        SELECT
+            im.id::text, im.affiliate_id, im.affiliate_name,
+            'inbound' AS direction, im.message_content,
+            im.from_number, NULL AS to_number,
+            CASE WHEN im.is_read THEN 'read' ELSE 'delivered' END AS status,
+            im.received_at AS sent_at,
+            im.channel AS wa_category
+        FROM incoming_messages im
+        WHERE im.affiliate_id = :affiliate_id
+        ORDER BY sent_at ASC
         LIMIT :limit OFFSET :offset
     """), {"affiliate_id": affiliate_id, "limit": page_size, "offset": offset})
 
