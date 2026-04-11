@@ -28,7 +28,7 @@ const TYPE_STYLES: Record<string, string> = {
 }
 
 export function AlertPanel() {
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const [dismissed, setDismissed] = useState<string[]>([])
 
   const { data: alerts = [], isLoading, refetch } = useQuery({
     queryKey: ['alerts'],
@@ -36,7 +36,7 @@ export function AlertPanel() {
     refetchInterval: 5 * 60 * 1000, // refresh every 5 min
   })
 
-  const visible = (alerts as Alert[]).filter(a => !dismissed.has(a.title))
+  const visible = (alerts as Alert[]).filter(a => !dismissed.includes(a.title))
 
   if (isLoading) return null
   if (visible.length === 0) return null
@@ -70,7 +70,7 @@ export function AlertPanel() {
               <p className="text-xs text-gray-500 mt-0.5">{alert.message}</p>
             </div>
             <button
-              onClick={() => setDismissed(prev => new Set([...prev, alert.title]))}
+              onClick={() => setDismissed(prev => [...prev, alert.title])}
               className="text-gray-600 hover:text-gray-400 transition-colors shrink-0 mt-0.5"
             >
               <X className="h-3.5 w-3.5" />
