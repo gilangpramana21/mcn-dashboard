@@ -67,7 +67,9 @@ export default function BrandsPage() {
   const deleteBrand = useMutation({
     mutationFn: (brandId: string) => apiClient.delete(`/brands/${brandId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['brands'] }),
-  })  async function downloadExcel(type: 'outreach' | 'deal' | 'master-brand', brandId?: string) {
+  })
+
+  async function downloadExcel(type: 'outreach' | 'deal' | 'master-brand', brandId?: string) {
     setDownloading(type)
     try {
       const params = brandId ? `?brand_id=${brandId}` : ''
