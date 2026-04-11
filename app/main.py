@@ -21,6 +21,7 @@ from app.api.messages import router as messages_router
 from app.api.tiktok_shop import router as tiktok_shop_router
 from app.api.brands import router as brands_router
 from app.api.monthly_reports import router as monthly_reports_router
+from app.api.alerts import router as alerts_router
 from app.database import engine
 
 logger = logging.getLogger(__name__)
@@ -136,6 +137,7 @@ app.include_router(messages_router, prefix=_PREFIX)
 app.include_router(tiktok_shop_router, prefix=_PREFIX)
 app.include_router(brands_router, prefix=_PREFIX)
 app.include_router(monthly_reports_router, prefix=_PREFIX)
+app.include_router(alerts_router, prefix=_PREFIX)
 
 
 # ---------------------------------------------------------------------------

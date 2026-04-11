@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import { Plus, Download, ChevronDown, ChevronUp, FileSpreadsheet, BarChart2, Trash2 } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from 'sonner'
 
 interface Brand {
   id: string
@@ -50,7 +51,13 @@ export default function BrandsPage() {
 
   const createBrand = useMutation({
     mutationFn: (data: typeof brandForm) => apiClient.post('/brands', data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['brands'] }); setShowAddBrand(false); setBrandForm({ name: '', wa_number: '', sow: '', message_template: '' }) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brands'] })
+      setShowAddBrand(false)
+      setBrandForm({ name: '', wa_number: '', sow: '', message_template: '' })
+      toast.success('Brand berhasil ditambahkan')
+    },
+    onError: () => toast.error('Gagal menambahkan brand'),
   })
 
   const createSKU = useMutation({
@@ -61,12 +68,18 @@ export default function BrandsPage() {
       qc.invalidateQueries({ queryKey: ['brands'] })
       setShowAddSKU(null)
       setSkuForm({ product_name: '', affiliate_link: '', price: '' })
+      toast.success('SKU berhasil ditambahkan')
     },
+    onError: () => toast.error('Gagal menambahkan SKU'),
   })
 
   const deleteBrand = useMutation({
     mutationFn: (brandId: string) => apiClient.delete(`/brands/${brandId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['brands'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brands'] })
+      toast.success('Brand berhasil dihapus')
+    },
+    onError: () => toast.error('Gagal menghapus brand'),
   })
 
   async function downloadExcel(type: 'outreach' | 'deal' | 'master-brand', brandId?: string) {
@@ -84,8 +97,10 @@ export default function BrandsPage() {
       a.download = `${type}.xlsx`
       a.click()
       URL.revokeObjectURL(url)
+      toast.success('File berhasil diunduh')
     } catch (e) {
       console.error(e)
+      toast.error('Gagal mengunduh file')
     } finally {
       setDownloading(null)
     }

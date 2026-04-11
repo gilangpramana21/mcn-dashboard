@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { apiClient } from '@/lib/api-client'
 import { Plus, Trash2, Pencil, Eye, X, Copy, Check, FileText, Clock, Tag } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface Template {
   id: string
@@ -100,17 +101,21 @@ function TemplateModal({ template, onClose, onSave }: {
           default_values: defaults,
           wa_category: waCategory || null,
         })
+        toast.success('Template berhasil diperbarui')
       } else {
         await apiClient.post('/templates', {
           name, content, default_values: defaults,
           message_type: messageType, channel: selectedType.channel,
           wa_category: waCategory || null,
         })
+        toast.success('Template berhasil dibuat')
       }
       onSave()
       onClose()
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? 'Gagal menyimpan template')
+      const msg = err?.response?.data?.detail ?? 'Gagal menyimpan template'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -401,7 +406,13 @@ export default function TemplatesPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Hapus template ini?')) return
-    try { await apiClient.delete(`/templates/${id}`); load() } catch {}
+    try {
+      await apiClient.delete(`/templates/${id}`)
+      load()
+      toast.success('Template berhasil dihapus')
+    } catch {
+      toast.error('Gagal menghapus template')
+    }
   }
 
   function openCreate() { setEditTemplate(null); setShowModal(true) }

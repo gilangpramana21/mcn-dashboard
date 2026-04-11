@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { formatCurrency, formatCurrencyCompact } from '@/lib/formatters'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { KPICard } from '@/components/analytics/KPICard'
+import { AlertPanel } from '@/components/AlertPanel'
 import {
   DollarSign, Users, TrendingUp, ShoppingBag, ChevronRight, Star, UserCheck,
 } from 'lucide-react'
@@ -134,6 +135,9 @@ export default function DashboardPage() {
           isLoading={isLoading} 
         />
       </div>
+
+      {/* Alerts */}
+      <AlertPanel />
 
       {/* Top Highlights */}
       {overview && !isLoading && (

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { apiClient } from '@/lib/api-client'
 import { Plus, Trash2, ShieldOff, Search, AlertTriangle, X, Calendar, User } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface BlacklistItem {
   id: string
@@ -48,14 +49,23 @@ export default function BlacklistPage() {
       setForm({ influencer_id: '', reason: '' })
       setShowModal(false)
       load()
+      toast.success('Affiliator berhasil ditambahkan ke daftar hitam')
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? 'Gagal menambahkan ke daftar hitam')
+      const msg = err?.response?.data?.detail ?? 'Gagal menambahkan ke daftar hitam'
+      setError(msg)
+      toast.error(msg)
     } finally { setSaving(false) }
   }
 
   async function handleRemove(id: string) {
     if (!confirm('Hapus dari daftar hitam?')) return
-    try { await apiClient.delete(`/influencers/blacklist/${id}`); load() } catch {}
+    try {
+      await apiClient.delete(`/influencers/blacklist/${id}`)
+      load()
+      toast.success('Affiliator dihapus dari daftar hitam')
+    } catch {
+      toast.error('Gagal menghapus dari daftar hitam')
+    }
   }
 
   async function downloadCSV() {
