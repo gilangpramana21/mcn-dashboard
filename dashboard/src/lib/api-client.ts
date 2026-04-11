@@ -35,14 +35,9 @@ apiClient.interceptors.response.use(
           window.location.href = '/login'
         }
       }
-    } else if (error.response?.status === 500) {
-      toast.error('Terjadi kesalahan pada server. Silakan coba lagi nanti.')
-    } else if (!error.response) {
-      // Jangan tampilkan toast jika sedang di halaman login
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        toast.error('Gagal terhubung ke server. Periksa koneksi internet Anda.')
-      }
     }
+    // Tidak tampilkan toast global untuk 500 atau network error
+    // Biarkan masing-masing komponen yang handle error-nya sendiri
     return Promise.reject(error)
   }
 )
