@@ -25,7 +25,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/affiliates', label: 'Cari Affiliasi', icon: Search, role: null, waOnly: false, importOnly: false },
       { href: '/import', label: 'Import Affiliator', icon: Upload, role: 'manager', waOnly: false, importOnly: true },
-      { href: '/messages', label: 'History Pesan', icon: MessageSquare, role: null, waOnly: true, importOnly: false },
+      { href: '/messages', label: 'History Pesan', icon: MessageSquare, role: null, waOnly: false, importOnly: false },
       { href: '/templates', label: 'Template Pesan', icon: FileText, role: 'manager', waOnly: true, importOnly: false },
       { href: '/blacklist', label: 'Daftar Hitam', icon: Ban, role: 'manager', waOnly: false, importOnly: false },
     ],

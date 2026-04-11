@@ -155,7 +155,7 @@ async def get_conversations(
         WITH all_messages AS (
             -- Pesan outbound dari message_history
             SELECT
-                affiliate_id::text,
+                affiliate_id::text AS affiliate_id,
                 affiliate_name,
                 message_content,
                 sent_at AS msg_time,
@@ -164,36 +164,44 @@ async def get_conversations(
             UNION ALL
             -- Pesan inbound dari incoming_messages (simulasi)
             SELECT
-                affiliate_id::text,
+                COALESCE(affiliate_id, affiliate_name) AS affiliate_id,
                 affiliate_name,
                 message_content,
                 received_at AS msg_time,
                 CASE WHEN is_read = FALSE THEN 1 ELSE 0 END AS is_unread
             FROM incoming_messages
-            WHERE affiliate_id IS NOT NULL
+        ),
+        grouped AS (
+            SELECT
+                affiliate_id,
+                MAX(affiliate_name) AS affiliate_name,
+                COUNT(*) AS message_count,
+                MAX(msg_time) AS last_message_at,
+                SUM(is_unread) AS unread_count
+            FROM all_messages
+            GROUP BY affiliate_id
+            HAVING COUNT(*) > 0
         )
         SELECT
-            i.id AS affiliate_id,
-            i.name AS affiliate_name,
-            i.content_categories,
-            i.has_whatsapp,
-            COUNT(am.affiliate_id) AS message_count,
-            MAX(am.msg_time) AS last_message_at,
-            (SELECT message_content FROM all_messages am2
-             WHERE am2.affiliate_id = i.id::varchar ORDER BY am2.msg_time DESC LIMIT 1) AS last_message,
-            SUM(am.is_unread) AS unread_count
-        FROM influencers i
-        LEFT JOIN all_messages am ON am.affiliate_id = i.id::varchar
-        {where}
-        GROUP BY i.id, i.name, i.content_categories, i.has_whatsapp
-        HAVING COUNT(am.affiliate_id) > 0
-        ORDER BY MAX(am.msg_time) DESC NULLS LAST
+            g.affiliate_id,
+            g.affiliate_name,
+            g.message_count,
+            g.last_message_at,
+            g.unread_count,
+            (SELECT message_content FROM all_messages am
+             WHERE am.affiliate_id = g.affiliate_id ORDER BY am.msg_time DESC LIMIT 1) AS last_message,
+            COALESCE(i.content_categories, '[]'::jsonb) AS content_categories,
+            COALESCE(i.has_whatsapp, FALSE) AS has_whatsapp
+        FROM grouped g
+        LEFT JOIN influencers i ON i.id::text = g.affiliate_id OR i.name = g.affiliate_name
+        {"WHERE LOWER(g.affiliate_name) LIKE :search" if search else ""}
+        ORDER BY g.last_message_at DESC NULLS LAST
     """), params)
 
     rows = result.mappings().all()
     items = []
     for row in rows:
-        cats = row["content_categories"] or []
+        cats = row.get("content_categories") or []
         if isinstance(cats, str):
             try:
                 cats = json.loads(cats)
@@ -202,13 +210,13 @@ async def get_conversations(
         wa_cat = _get_category_from_categories(cats)
         items.append(ConversationSummary(
             affiliate_id=str(row["affiliate_id"]),
-            affiliate_name=row["affiliate_name"],
+            affiliate_name=row["affiliate_name"] or "",
             last_message=row["last_message"] or "",
             last_message_at=row["last_message_at"].isoformat() if row["last_message_at"] else "",
             message_count=int(row["message_count"] or 0),
             unread_count=int(row["unread_count"] or 0),
             wa_category=wa_cat,
-            has_whatsapp=bool(row["has_whatsapp"]),
+            has_whatsapp=bool(row.get("has_whatsapp") or False),
         ))
     return items
 
@@ -231,17 +239,17 @@ async def get_message_history(
             wn.category AS wa_category
         FROM message_history mh
         LEFT JOIN whatsapp_numbers wn ON wn.id = mh.wa_number_id
-        WHERE mh.affiliate_id = :affiliate_id
+        WHERE mh.affiliate_id = :affiliate_id OR mh.affiliate_name = :affiliate_id
         UNION ALL
         SELECT
-            im.id::text, im.affiliate_id, im.affiliate_name,
+            im.id::text, COALESCE(im.affiliate_id, im.affiliate_name), im.affiliate_name,
             'inbound' AS direction, im.message_content,
             im.from_number, NULL AS to_number,
             CASE WHEN im.is_read THEN 'read' ELSE 'delivered' END AS status,
             im.received_at AS sent_at,
             im.channel AS wa_category
         FROM incoming_messages im
-        WHERE im.affiliate_id = :affiliate_id
+        WHERE im.affiliate_id = :affiliate_id OR im.affiliate_name = :affiliate_id
         ORDER BY sent_at ASC
         LIMIT :limit OFFSET :offset
     """), {"affiliate_id": affiliate_id, "limit": page_size, "offset": offset})
