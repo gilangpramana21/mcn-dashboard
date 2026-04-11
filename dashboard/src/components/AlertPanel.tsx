@@ -33,7 +33,8 @@ export function AlertPanel() {
   const { data: alerts = [], isLoading, refetch } = useQuery({
     queryKey: ['alerts'],
     queryFn: () => apiClient.get('/alerts').then(r => (r as any).data ?? r),
-    refetchInterval: 5 * 60 * 1000, // refresh every 5 min
+    refetchInterval: 5 * 60 * 1000,
+    retry: false,
   })
 
   const visible = (alerts as Alert[]).filter(a => !dismissed.includes(a.title))

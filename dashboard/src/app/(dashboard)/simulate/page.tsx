@@ -39,6 +39,7 @@ export default function SimulatePage() {
   const { data: affiliates = [] } = useQuery({
     queryKey: ['affiliates-simulate'],
     queryFn: () => apiClient.get('/inbox/affiliates-with-wa').then(r => (r as any).data ?? r),
+    retry: false,
   })
 
   const affiliatesWithWA = (affiliates as Affiliate[]).filter(a => a.has_whatsapp)
