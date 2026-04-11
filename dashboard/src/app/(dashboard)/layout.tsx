@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/Sidebar'
+import { NotificationBell } from '@/components/NotificationBell'
 import { useAuth } from '@/hooks/useAuth'
 import { getToken } from '@/lib/auth'
 
@@ -32,10 +33,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-14 items-center justify-between border-b border-[#1f1f1f] bg-[#111111] px-6">
           <span className="text-sm text-gray-400">Dashboard</span>
-          <button onClick={logout}
-            className="text-sm text-gray-400 hover:text-white transition-colors">
-            Keluar
-          </button>
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <button onClick={logout}
+              className="text-sm text-gray-400 hover:text-white transition-colors">
+              Keluar
+            </button>
+          </div>
         </header>
         <main className="flex-1 overflow-auto">
           {children}
