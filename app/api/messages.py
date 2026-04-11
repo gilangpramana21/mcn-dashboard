@@ -142,42 +142,69 @@ async def get_conversations(
     db: AsyncSession = Depends(get_db_session),
     _: Dict[str, Any] = Depends(get_current_user),
 ) -> List[ConversationSummary]:
-    """Daftar semua percakapan (satu per affiliate)."""
+    """Daftar semua percakapan (gabungan inbound + outbound, satu per affiliate)."""
     import json
 
-    where = ""
+    search_filter = "WHERE LOWER(affiliate_name) LIKE :search" if search else ""
     params: Dict[str, Any] = {}
     if search:
-        where = "WHERE LOWER(i.name) LIKE :search"
         params["search"] = f"%{search.lower()}%"
 
+    # Gabungkan incoming_messages (inbound) + message_history (outbound)
     result = await db.execute(text(f"""
+        WITH all_messages AS (
+            SELECT
+                COALESCE(affiliate_id, affiliate_name) AS aff_key,
+                affiliate_name,
+                message_content,
+                received_at AS msg_at,
+                CASE WHEN is_read = FALSE THEN 1 ELSE 0 END AS is_unread
+            FROM incoming_messages
+            UNION ALL
+            SELECT
+                affiliate_id AS aff_key,
+                affiliate_name,
+                message_content,
+                sent_at AS msg_at,
+                0 AS is_unread
+            FROM message_history
+        )
         SELECT
-            affiliate_name AS affiliate_id,
+            aff_key AS affiliate_id,
             affiliate_name,
             COUNT(*) AS message_count,
-            MAX(received_at) AS last_message_at,
-            (SELECT message_content FROM incoming_messages im2
-             WHERE im2.affiliate_name = im.affiliate_name
-             ORDER BY im2.received_at DESC LIMIT 1) AS last_message,
-            SUM(CASE WHEN is_read = FALSE THEN 1 ELSE 0 END) AS unread_count,
-            NULL::jsonb AS content_categories,
-            FALSE AS has_whatsapp
-        FROM incoming_messages im
-        {"WHERE LOWER(affiliate_name) LIKE :search" if search else ""}
-        GROUP BY affiliate_name
-        ORDER BY MAX(received_at) DESC
+            MAX(msg_at) AS last_message_at,
+            (SELECT message_content FROM all_messages am2
+             WHERE am2.aff_key = am.aff_key
+             ORDER BY am2.msg_at DESC LIMIT 1) AS last_message,
+            SUM(is_unread) AS unread_count
+        FROM all_messages am
+        {search_filter}
+        GROUP BY aff_key, affiliate_name
+        ORDER BY MAX(msg_at) DESC
     """), params)
 
     rows = result.mappings().all()
     items = []
     for row in rows:
-        cats = row.get("content_categories") or []
-        if isinstance(cats, str):
-            try:
-                cats = json.loads(cats)
-            except Exception:
-                cats = []
+        # Coba ambil content_categories dari influencers berdasarkan affiliate_id
+        cats: List[str] = []
+        try:
+            aff_result = await db.execute(text(
+                "SELECT content_categories FROM influencers WHERE id = :id OR name = :name LIMIT 1"
+            ), {"id": str(row["affiliate_id"]), "name": row["affiliate_name"]})
+            aff_row = aff_result.mappings().first()
+            if aff_row and aff_row["content_categories"]:
+                raw = aff_row["content_categories"]
+                if isinstance(raw, str):
+                    try:
+                        cats = json.loads(raw)
+                    except Exception:
+                        cats = []
+                elif isinstance(raw, list):
+                    cats = raw
+        except Exception:
+            pass
         wa_cat = _get_category_from_categories(cats)
         items.append(ConversationSummary(
             affiliate_id=str(row["affiliate_id"]),
@@ -187,7 +214,7 @@ async def get_conversations(
             message_count=int(row["message_count"] or 0),
             unread_count=int(row["unread_count"] or 0),
             wa_category=wa_cat,
-            has_whatsapp=bool(row.get("has_whatsapp") or False),
+            has_whatsapp=False,
         ))
     return items
 
@@ -200,27 +227,38 @@ async def get_message_history(
     db: AsyncSession = Depends(get_db_session),
     _: Dict[str, Any] = Depends(get_current_user),
 ) -> List[MessageItem]:
-    """History pesan dengan affiliate tertentu."""
+    """History pesan dengan affiliate tertentu (inbound + outbound)."""
     offset = (page - 1) * page_size
     result = await db.execute(text("""
-        SELECT
-            mh.id, mh.affiliate_id, mh.affiliate_name,
-            mh.direction, mh.message_content,
-            mh.from_number, mh.to_number, mh.status, mh.sent_at,
-            wn.category AS wa_category
-        FROM message_history mh
-        LEFT JOIN whatsapp_numbers wn ON wn.id = mh.wa_number_id
-        WHERE mh.affiliate_id = :affiliate_id OR mh.affiliate_name = :affiliate_id
-        UNION ALL
-        SELECT
-            im.id::text, COALESCE(im.affiliate_id, im.affiliate_name), im.affiliate_name,
-            'inbound' AS direction, im.message_content,
-            im.from_number, NULL AS to_number,
-            CASE WHEN im.is_read THEN 'read' ELSE 'delivered' END AS status,
-            im.received_at AS sent_at,
-            im.channel AS wa_category
-        FROM incoming_messages im
-        WHERE im.affiliate_id = :affiliate_id OR im.affiliate_name = :affiliate_id
+        SELECT * FROM (
+            SELECT
+                id::text AS id,
+                COALESCE(affiliate_id, affiliate_name) AS affiliate_id,
+                affiliate_name,
+                'inbound' AS direction,
+                message_content,
+                from_number,
+                NULL::varchar AS to_number,
+                CASE WHEN is_read THEN 'read' ELSE 'delivered' END AS status,
+                received_at AS sent_at,
+                channel AS wa_category
+            FROM incoming_messages
+            WHERE affiliate_name = :affiliate_id OR affiliate_id = :affiliate_id
+            UNION ALL
+            SELECT
+                id::text AS id,
+                affiliate_id,
+                affiliate_name,
+                direction,
+                message_content,
+                from_number,
+                to_number,
+                status,
+                sent_at,
+                NULL::varchar AS wa_category
+            FROM message_history
+            WHERE affiliate_id = :affiliate_id OR affiliate_name = :affiliate_id
+        ) combined
         ORDER BY sent_at ASC
         LIMIT :limit OFFSET :offset
     """), {"affiliate_id": affiliate_id, "limit": page_size, "offset": offset})
