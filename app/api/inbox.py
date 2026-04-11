@@ -25,13 +25,12 @@ async def get_affiliates_for_simulate(
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> List[Dict]:
-    """Ambil daftar affiliator untuk dropdown simulasi (prioritaskan yang punya WA)."""
+    """Ambil daftar affiliator untuk dropdown simulasi."""
     result = await db.execute(text("""
         SELECT id, name, tiktok_user_id, phone_number, has_whatsapp
         FROM influencers
-        WHERE status = 'ACTIVE'
         ORDER BY has_whatsapp DESC, name ASC
-        LIMIT 50
+        LIMIT 100
     """))
     return [dict(r) for r in result.mappings().all()]
 
