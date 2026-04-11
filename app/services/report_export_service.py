@@ -232,3 +232,116 @@ async def generate_excel3_master_brand(db: AsyncSession) -> bytes:
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+async def generate_excel_monthly_report(
+    db: AsyncSession,
+    report_id: str,
+) -> bytes:
+    """Generate Excel Monthly Report untuk 1 report."""
+    if not OPENPYXL_AVAILABLE:
+        raise ImportError("openpyxl tidak terinstall. Jalankan: pip install openpyxl")
+
+    result = await db.execute(text("""
+        SELECT mr.*, b.name as brand_name
+        FROM monthly_reports mr
+        JOIN brands b ON mr.brand_id = b.id
+        WHERE mr.id = :id
+    """), {"id": report_id})
+    r = result.mappings().first()
+    if not r:
+        raise ValueError("Report tidak ditemukan")
+
+    # Top performers
+    top_result = await db.execute(text("""
+        SELECT username, gmv_perbulan_after_join as gmv, link_acc
+        FROM deal_records
+        WHERE brand_id = :brand_id
+          AND tanggal BETWEEN :start AND :end
+          AND gmv_perbulan_after_join > 0
+        ORDER BY gmv_perbulan_after_join DESC
+        LIMIT 10
+    """), {"brand_id": str(r["brand_id"]), "start": r["period_start"], "end": r["period_end"]})
+    top_performers = top_result.fetchall()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Monthly Report"
+
+    def _write_section(title: str, rows: list, row_start: int) -> int:
+        fill = PatternFill(start_color="1E1E2E", end_color="1E1E2E", fill_type="solid")
+        title_font = Font(bold=True, color="A78BFA", size=12)
+        cell = ws.cell(row=row_start, column=1, value=title)
+        cell.font = title_font
+        cell.fill = fill
+        ws.merge_cells(start_row=row_start, start_column=1, end_row=row_start, end_column=3)
+        row_start += 1
+        for label, value in rows:
+            ws.cell(row=row_start, column=1, value=label).font = Font(bold=True)
+            ws.cell(row=row_start, column=2, value=value)
+            row_start += 1
+        return row_start + 1
+
+    def _fmt(n) -> str:
+        if n is None:
+            return "-"
+        try:
+            return f"Rp{int(n):,}".replace(",", ".")
+        except Exception:
+            return str(n)
+
+    row = 1
+    # Header
+    ws.cell(row=row, column=1, value=f"Monthly Report — {r['brand_name']}").font = Font(bold=True, size=14, color="7C3AED")
+    ws.cell(row=row+1, column=1, value=f"{r['batch_name']} | {r['period_start']} s/d {r['period_end']}")
+    row = 3
+
+    row = _write_section("1. KEY METRICS", [
+        ("Total Creator Deal", r["total_deal"]),
+        ("Creator Sudah Upload", r["total_uploaded"]),
+        ("Creator Belum Upload", r["total_not_uploaded"]),
+        ("Total Video", r["total_videos"]),
+        ("Creator Generate Sales", r["total_generate_sales"]),
+        ("GMV Periode Ini", _fmt(r["gmv_current"])),
+        ("GMV Periode Sebelumnya", _fmt(r["gmv_previous"])),
+        ("Total Produk Terjual", r["total_products_sold"]),
+        ("Total Pesanan Settled", r["total_orders_settled"]),
+    ], row)
+
+    row = _write_section("2. BREAKDOWN GMV", [
+        ("GMV dari Video", _fmt(r["gmv_video"])),
+        ("GMV dari Live", _fmt(r["gmv_live"])),
+    ], row)
+
+    if r.get("insight_key_metrics"):
+        row = _write_section("INSIGHT — Key Metrics", [("", r["insight_key_metrics"])], row)
+    if r.get("insight_affiliate"):
+        row = _write_section("INSIGHT — Performa Affiliate", [("", r["insight_affiliate"])], row)
+    if r.get("insight_funnel"):
+        row = _write_section("INSIGHT — Funnel Campaign", [("", r["insight_funnel"])], row)
+    if r.get("insight_gmv"):
+        row = _write_section("INSIGHT — GMV", [("", r["insight_gmv"])], row)
+    if r.get("insight_gap"):
+        row = _write_section("GAP OPERASIONAL", [("", r["insight_gap"])], row)
+    if r.get("insight_strategic"):
+        row = _write_section("INSIGHT STRATEGIS", [("", r["insight_strategic"])], row)
+    if r.get("next_plan"):
+        row = _write_section("NEXT PLAN", [("", r["next_plan"])], row)
+    if r.get("kesimpulan"):
+        row = _write_section("KESIMPULAN", [("", r["kesimpulan"])], row)
+
+    # Top Performers sheet
+    ws2 = wb.create_sheet("Top Performers")
+    _apply_header_style(ws2, ["PERINGKAT", "USERNAME", "LINK ACC", "GMV"], "7C3AED")
+    for idx, tp in enumerate(top_performers, 1):
+        ws2.cell(row=idx+1, column=1, value=idx)
+        ws2.cell(row=idx+1, column=2, value=tp[0])
+        ws2.cell(row=idx+1, column=3, value=tp[2])
+        ws2.cell(row=idx+1, column=4, value=tp[1])
+
+    ws.column_dimensions["A"].width = 30
+    ws.column_dimensions["B"].width = 50
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()

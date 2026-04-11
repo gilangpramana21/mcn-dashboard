@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
-import { Plus, Download, ChevronDown, ChevronUp, Trash2, FileSpreadsheet } from 'lucide-react'
+import { Plus, Download, ChevronDown, ChevronUp, FileSpreadsheet, BarChart2, Trash2 } from 'lucide-react'
+import Link from 'next/link'
 
 interface Brand {
   id: string
@@ -63,7 +64,10 @@ export default function BrandsPage() {
     },
   })
 
-  async function downloadExcel(type: 'outreach' | 'deal' | 'master-brand', brandId?: string) {
+  const deleteBrand = useMutation({
+    mutationFn: (brandId: string) => apiClient.delete(`/brands/${brandId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['brands'] }),
+  })  async function downloadExcel(type: 'outreach' | 'deal' | 'master-brand', brandId?: string) {
     setDownloading(type)
     try {
       const params = brandId ? `?brand_id=${brandId}` : ''
@@ -208,13 +212,29 @@ export default function BrandsPage() {
                   >
                     Deal
                   </button>
+                  <Link
+                    href={`/brands/${brand.id}/monthly-report`}
+                    className="rounded-lg border border-[#2f2f2f] px-2.5 py-1.5 text-xs text-gray-400 hover:text-violet-400 hover:border-violet-500/50 transition-colors flex items-center gap-1"
+                  >
+                    <BarChart2 className="h-3 w-3" /> Monthly Report
+                  </Link>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Hapus brand "${brand.name}"? Semua data terkait akan ikut terhapus.`)) {
+                        deleteBrand.mutate(brand.id)
+                      }
+                    }}
+                    className="rounded-lg border border-[#2f2f2f] p-1.5 text-gray-400 hover:text-red-400 hover:border-red-500/50 transition-colors"
+                    title="Hapus brand"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                   <button
                     onClick={() => setExpandedBrand(expandedBrand === brand.id ? null : brand.id)}
                     className="rounded-lg border border-[#2f2f2f] p-1.5 text-gray-400 hover:text-white transition-colors"
                   >
                     {expandedBrand === brand.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </button>
-                </div>
+                  </button>                </div>
               </div>
 
               {/* Expanded Detail */}

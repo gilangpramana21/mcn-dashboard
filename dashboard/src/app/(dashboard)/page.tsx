@@ -64,9 +64,11 @@ export default function DashboardPage() {
   const greeting = now.getHours() < 12 ? 'Selamat pagi' : now.getHours() < 17 ? 'Selamat siang' : 'Selamat malam'
 
   // Creator type breakdown
-  const creatorTypeBreakdown = {
-    affiliator: creators.filter(c => c.creator_type === 'affiliator' || c.creator_type === 'influencer' || c.creator_type === 'hybrid').length,
-  }
+  const typeCount: Record<string, number> = {}
+  creators.forEach(c => {
+    const t = c.creator_type || 'affiliator'
+    typeCount[t] = (typeCount[t] || 0) + 1
+  })
   const totalCreatorsFetched = creators.length || 1
   const withWhatsapp = creators.filter(c => c.has_whatsapp).length
 
@@ -159,7 +161,7 @@ export default function DashboardPage() {
       {/* Creator Type Breakdown */}
       {!isLoading && creators.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Distribusi Tipe Kreator */}
+          {/* Distribusi Tipe Affiliator */}
           <div className="rounded-xl border border-[#1f1f1f] bg-[#111111] p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-white">Distribusi Tipe Affiliator</h2>
@@ -169,20 +171,33 @@ export default function DashboardPage() {
               </button>
             </div>
             <div className="space-y-3">
-              {[
-                { label: 'Affiliator', count: creatorTypeBreakdown.affiliator, color: 'bg-green-500', textColor: 'text-green-400' },
-              ].map(item => (
-                <div key={item.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`text-xs font-medium ${item.textColor}`}>{item.label}</span>
-                    <span className="text-xs text-gray-500">{item.count} kreator ({Math.round(item.count / totalCreatorsFetched * 100)}%)</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-[#1a1a1a] overflow-hidden">
-                    <div className={`h-full rounded-full ${item.color}`}
-                      style={{ width: `${Math.round(item.count / totalCreatorsFetched * 100)}%` }} />
-                  </div>
-                </div>
-              ))}
+              {Object.entries(typeCount).length === 0 ? (
+                <p className="text-sm text-gray-600 text-center py-4">Belum ada data</p>
+              ) : (
+                Object.entries(typeCount)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([type, count]) => {
+                    const colorMap: Record<string, { bar: string; text: string }> = {
+                      affiliator: { bar: 'bg-green-500', text: 'text-green-400' },
+                      influencer: { bar: 'bg-violet-500', text: 'text-violet-400' },
+                      hybrid: { bar: 'bg-teal-500', text: 'text-teal-400' },
+                    }
+                    const color = colorMap[type] ?? { bar: 'bg-gray-500', text: 'text-gray-400' }
+                    const label = type.charAt(0).toUpperCase() + type.slice(1)
+                    return (
+                      <div key={type}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`text-xs font-medium ${color.text}`}>{label}</span>
+                          <span className="text-xs text-gray-500">{count} ({Math.round(count / totalCreatorsFetched * 100)}%)</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-[#1a1a1a] overflow-hidden">
+                          <div className={`h-full rounded-full ${color.bar}`}
+                            style={{ width: `${Math.round(count / totalCreatorsFetched * 100)}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })
+              )}
               {/* WhatsApp availability */}
               <div className="pt-2 mt-2 border-t border-[#1f1f1f] flex items-center justify-between">
                 <div className="flex items-center gap-2">

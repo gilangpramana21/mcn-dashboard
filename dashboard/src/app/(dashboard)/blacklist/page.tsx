@@ -6,6 +6,7 @@ import { Plus, Trash2, ShieldOff, Search, AlertTriangle, X, Calendar, User } fro
 interface BlacklistItem {
   id: string
   influencer_id: string
+  influencer_name?: string
   reason: string
   added_by: string
   added_at: string
@@ -69,6 +70,7 @@ export default function BlacklistPage() {
 
   const filtered = list.filter(item =>
     item.influencer_id.toLowerCase().includes(search.toLowerCase()) ||
+    (item.influencer_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
     item.reason.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -166,7 +168,12 @@ export default function BlacklistPage() {
                       <div className="h-7 w-7 rounded-full bg-red-900/30 flex items-center justify-center shrink-0">
                         <User className="h-3.5 w-3.5 text-red-400" />
                       </div>
-                      <span className="text-white font-medium text-sm font-mono">{item.influencer_id}</span>
+                      <div>
+                        {item.influencer_name && (
+                          <p className="text-white font-medium text-sm">{item.influencer_name}</p>
+                        )}
+                        <p className="text-gray-500 text-xs font-mono">{item.influencer_id}</p>
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">

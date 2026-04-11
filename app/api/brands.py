@@ -113,9 +113,19 @@ async def list_brand_skus(
     return [dict(r) for r in result.mappings().all()]
 
 
-@router.post("/{brand_id}/skus")
-async def add_brand_sku(
+@router.delete("/{brand_id}")
+async def delete_brand(
     brand_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    await db.execute(text("UPDATE brands SET is_active = FALSE WHERE id = :id"), {"id": brand_id})
+    await db.commit()
+    return {"status": "deleted"}
+
+
+@router.post("/{brand_id}/skus")
+async def add_brand_sku(    brand_id: str,
     body: BrandSKUCreate,
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),

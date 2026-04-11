@@ -51,10 +51,10 @@ const FOLLOWER_RANGES = [
 
 const ENGAGEMENT_RANGES = [
   { label: 'Semua', value: '' },
-  { label: '1%+', value: '0.01' },
-  { label: '3%+', value: '0.03' },
-  { label: '5%+', value: '0.05' },
-  { label: '10%+', value: '0.10' },
+  { label: '1%+', value: '1' },
+  { label: '3%+', value: '3' },
+  { label: '5%+', value: '5' },
+  { label: '10%+', value: '10' },
 ]
 
 const SORT_OPTIONS = [
@@ -413,8 +413,8 @@ export default function AffiliatesPage() {
                         <span className="text-white font-medium">{formatFollowers(a.follower_count)}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className={`font-medium ${a.engagement_rate >= 0.05 ? 'text-green-400' : a.engagement_rate >= 0.02 ? 'text-yellow-400' : 'text-gray-400'}`}>
-                          {(a.engagement_rate * 100).toFixed(1)}%
+                        <span className={`font-medium ${a.engagement_rate >= 5 ? 'text-green-400' : a.engagement_rate >= 2 ? 'text-yellow-400' : 'text-gray-400'}`}>
+                          {a.engagement_rate.toFixed(1)}%
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-400 text-xs">{a.location || '—'}</td>

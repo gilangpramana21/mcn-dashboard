@@ -40,12 +40,27 @@ async def get_recommendations(
     db: AsyncSession = Depends(get_db_session),
     _: Dict[str, Any] = Depends(get_current_user),
 ) -> List[Dict]:
+    from sqlalchemy import text
     engine = LearningEngine()
     criteria = SelectionCriteria(id="default", name="Default")
     recs = await engine.get_influencer_recommendations(criteria, top_n=top_n, db=db)
+
+    # Ambil nama affiliator dari DB
+    if recs:
+        ids = [r.influencer_id for r in recs]
+        placeholders = ", ".join(f":id_{i}" for i in range(len(ids)))
+        name_result = await db.execute(
+            text(f"SELECT id::text, name FROM influencers WHERE id::text IN ({placeholders})"),
+            {f"id_{i}": v for i, v in enumerate(ids)}
+        )
+        name_map = {row[0]: row[1] for row in name_result.fetchall()}
+    else:
+        name_map = {}
+
     return [
         {
             "influencer_id": r.influencer_id,
+            "influencer_name": name_map.get(r.influencer_id),
             "predicted_conversion_rate": r.predicted_conversion_rate,
             "predicted_gmv": r.predicted_gmv,
             "confidence_score": r.confidence_score,

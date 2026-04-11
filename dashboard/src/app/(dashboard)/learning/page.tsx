@@ -15,6 +15,7 @@ interface ModelVersion {
 
 interface Recommendation {
   influencer_id: string
+  influencer_name?: string
   predicted_conversion_rate: number
   predicted_gmv: number
   confidence_score: number
@@ -214,7 +215,9 @@ export default function LearningPage() {
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs text-gray-600 w-5 shrink-0">#{i + 1}</span>
                     <div className="min-w-0">
-                      <p className="text-white text-sm font-medium truncate font-mono">{r.influencer_id}</p>
+                      <p className="text-white text-sm font-medium truncate">
+                        {r.influencer_name || r.influencer_id}
+                      </p>
                       <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
                         <span>Konversi: <span className="text-green-400">{(r.predicted_conversion_rate * 100).toFixed(1)}%</span></span>
                         <span>GMV: <span className="text-white">Rp {(r.predicted_gmv / 1_000_000).toFixed(1)}M</span></span>
