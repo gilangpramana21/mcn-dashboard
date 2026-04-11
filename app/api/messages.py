@@ -152,50 +152,21 @@ async def get_conversations(
         params["search"] = f"%{search.lower()}%"
 
     result = await db.execute(text(f"""
-        WITH all_messages AS (
-            -- Pesan outbound dari message_history
-            SELECT
-                affiliate_id::text AS affiliate_id,
-                affiliate_name,
-                message_content,
-                sent_at AS msg_time,
-                CASE WHEN direction = 'inbound' AND status != 'read' THEN 1 ELSE 0 END AS is_unread
-            FROM message_history
-            UNION ALL
-            -- Pesan inbound dari incoming_messages (simulasi)
-            SELECT
-                COALESCE(affiliate_id, affiliate_name) AS affiliate_id,
-                affiliate_name,
-                message_content,
-                received_at AS msg_time,
-                CASE WHEN is_read = FALSE THEN 1 ELSE 0 END AS is_unread
-            FROM incoming_messages
-        ),
-        grouped AS (
-            SELECT
-                affiliate_id,
-                MAX(affiliate_name) AS affiliate_name,
-                COUNT(*) AS message_count,
-                MAX(msg_time) AS last_message_at,
-                SUM(is_unread) AS unread_count
-            FROM all_messages
-            GROUP BY affiliate_id
-            HAVING COUNT(*) > 0
-        )
         SELECT
-            g.affiliate_id,
-            g.affiliate_name,
-            g.message_count,
-            g.last_message_at,
-            g.unread_count,
-            (SELECT message_content FROM all_messages am
-             WHERE am.affiliate_id = g.affiliate_id ORDER BY am.msg_time DESC LIMIT 1) AS last_message,
-            COALESCE(i.content_categories, '[]'::jsonb) AS content_categories,
-            COALESCE(i.has_whatsapp, FALSE) AS has_whatsapp
-        FROM grouped g
-        LEFT JOIN influencers i ON i.id::text = g.affiliate_id OR i.name = g.affiliate_name
-        {"WHERE LOWER(g.affiliate_name) LIKE :search" if search else ""}
-        ORDER BY g.last_message_at DESC NULLS LAST
+            affiliate_name AS affiliate_id,
+            affiliate_name,
+            COUNT(*) AS message_count,
+            MAX(received_at) AS last_message_at,
+            (SELECT message_content FROM incoming_messages im2
+             WHERE im2.affiliate_name = im.affiliate_name
+             ORDER BY im2.received_at DESC LIMIT 1) AS last_message,
+            SUM(CASE WHEN is_read = FALSE THEN 1 ELSE 0 END) AS unread_count,
+            NULL::jsonb AS content_categories,
+            FALSE AS has_whatsapp
+        FROM incoming_messages im
+        {"WHERE LOWER(affiliate_name) LIKE :search" if search else ""}
+        GROUP BY affiliate_name
+        ORDER BY MAX(received_at) DESC
     """), params)
 
     rows = result.mappings().all()
