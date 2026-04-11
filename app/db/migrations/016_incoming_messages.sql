@@ -2,11 +2,11 @@
 
 CREATE TABLE IF NOT EXISTS incoming_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    affiliate_id UUID REFERENCES influencers(id),
+    affiliate_id VARCHAR(255),              -- tidak pakai FK karena tipe berbeda
     affiliate_name VARCHAR(255),
-    channel VARCHAR(50) NOT NULL,  -- 'whatsapp' | 'tiktok_seller'
+    channel VARCHAR(50) NOT NULL,           -- 'whatsapp' | 'tiktok_seller'
     message_content TEXT NOT NULL,
-    from_number VARCHAR(100),      -- nomor WA atau TikTok user ID
+    from_number VARCHAR(100),
     is_read BOOLEAN DEFAULT FALSE,
     read_at TIMESTAMPTZ,
     received_at TIMESTAMPTZ DEFAULT NOW()
