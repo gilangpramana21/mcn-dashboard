@@ -22,7 +22,8 @@ export function useAnalytics<T>(
     },
     enabled: options?.enabled ?? true,
     refetchInterval: options?.refetchInterval,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes — analytics data tidak perlu sering refresh
+    gcTime: 15 * 60 * 1000,    // keep in cache 15 minutes
   })
 
   return {

@@ -96,7 +96,7 @@ export function NotificationBell() {
   const { data: countData } = useQuery({
     queryKey: ['inbox-count'],
     queryFn: () => apiClient.get('/inbox/unread-count').then(r => (r as any).data ?? r),
-    refetchInterval: 10000,
+    refetchInterval: 30000, // poll setiap 30 detik (SSE sudah handle real-time)
     retry: false,
   })
 

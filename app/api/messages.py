@@ -205,25 +205,30 @@ async def get_conversations(
 
     rows = result.mappings().all()
     items = []
+    # Ambil semua content_categories sekaligus (satu query, bukan N+1)
+    all_names = list({row["affiliate_name"] for row in rows if row["affiliate_name"]})
+    cats_map: Dict[str, List[str]] = {}
+    if all_names:
+        import json as _json
+        placeholders = ", ".join(f":n{i}" for i in range(len(all_names)))
+        cats_result = await db.execute(text(f"""
+            SELECT name, content_categories FROM influencers
+            WHERE name IN ({placeholders})
+        """), {f"n{i}": n for i, n in enumerate(all_names)})
+        for cr in cats_result.mappings().all():
+            raw = cr["content_categories"]
+            if isinstance(raw, str):
+                try:
+                    cats_map[cr["name"]] = _json.loads(raw)
+                except Exception:
+                    cats_map[cr["name"]] = []
+            elif isinstance(raw, list):
+                cats_map[cr["name"]] = raw
+            else:
+                cats_map[cr["name"]] = []
+
     for row in rows:
-        # Coba ambil content_categories dari influencers berdasarkan affiliate_id
-        cats: List[str] = []
-        try:
-            aff_result = await db.execute(text(
-                "SELECT content_categories FROM influencers WHERE id = :id OR name = :name LIMIT 1"
-            ), {"id": str(row["affiliate_id"]), "name": row["affiliate_name"]})
-            aff_row = aff_result.mappings().first()
-            if aff_row and aff_row["content_categories"]:
-                raw = aff_row["content_categories"]
-                if isinstance(raw, str):
-                    try:
-                        cats = json.loads(raw)
-                    except Exception:
-                        cats = []
-                elif isinstance(raw, list):
-                    cats = raw
-        except Exception:
-            pass
+        cats = cats_map.get(row["affiliate_name"], [])
         wa_cat = _get_category_from_categories(cats)
         items.append(ConversationSummary(
             affiliate_id=str(row["affiliate_id"]),
