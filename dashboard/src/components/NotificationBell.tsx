@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
 import { Bell, Phone, Store, Check, CheckCheck, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -90,6 +91,7 @@ export function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null)
   const qc = useQueryClient()
   const prevCount = useRef(0)
+  const router = useRouter()
 
   const { data: countData } = useQuery({
     queryKey: ['inbox-count'],
@@ -207,7 +209,11 @@ export function NotificationBell() {
                       'flex items-start gap-3 px-4 py-3 hover:bg-[#1a1a1a] transition-colors cursor-pointer',
                       !msg.is_read && 'bg-violet-950/20'
                     )}
-                    onClick={() => !msg.is_read && markRead.mutate(msg.id)}
+                    onClick={() => {
+                      if (!msg.is_read) markRead.mutate(msg.id)
+                      setOpen(false)
+                      router.push(`/messages?affiliate=${encodeURIComponent(msg.affiliate_name)}`)
+                    }}
                   >
                     <div className={cn('h-8 w-8 rounded-full flex items-center justify-center shrink-0', ch.bg)}>
                       <Icon className={cn('h-4 w-4', ch.color)} />

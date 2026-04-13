@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Search, Send, MessageCircle, Phone, Settings, FileText, X, Zap, Users, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 
@@ -92,6 +93,8 @@ export default function MessagesPage() {
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
   const [showTemplates, setShowTemplates] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const searchParams = useSearchParams()
+  const autoSelectDone = useRef(false)
 
   // Blast state
   const [showBlast, setShowBlast] = useState(false)
@@ -108,6 +111,19 @@ export default function MessagesPage() {
     loadWaNumbers()
     loadTemplates()
   }, [])
+
+  // Auto-select conversation dari query param ?affiliate=nama
+  useEffect(() => {
+    const affiliateName = searchParams.get('affiliate')
+    if (!affiliateName || autoSelectDone.current || conversations.length === 0) return
+    const match = conversations.find(c =>
+      c.affiliate_name.toLowerCase() === affiliateName.toLowerCase()
+    )
+    if (match) {
+      setSelected(match)
+      autoSelectDone.current = true
+    }
+  }, [conversations, searchParams])
 
   // Tutup popup dengan Escape
   useEffect(() => {
