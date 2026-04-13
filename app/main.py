@@ -23,6 +23,7 @@ from app.api.brands import router as brands_router
 from app.api.monthly_reports import router as monthly_reports_router
 from app.api.alerts import router as alerts_router
 from app.api.inbox import router as inbox_router
+from app.api.realtime import router as realtime_router
 from app.database import engine
 
 logger = logging.getLogger(__name__)
@@ -140,6 +141,7 @@ app.include_router(brands_router, prefix=_PREFIX)
 app.include_router(monthly_reports_router, prefix=_PREFIX)
 app.include_router(alerts_router, prefix=_PREFIX)
 app.include_router(inbox_router, prefix=_PREFIX)
+app.include_router(realtime_router, prefix=_PREFIX)
 
 
 # ---------------------------------------------------------------------------

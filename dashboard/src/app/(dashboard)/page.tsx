@@ -9,6 +9,7 @@ import { AlertPanel } from '@/components/AlertPanel'
 import {
   DollarSign, Users, TrendingUp, ShoppingBag, ChevronRight, Star, UserCheck,
 } from 'lucide-react'
+import { RealtimeIndicator } from '@/components/RealtimeIndicator'
 
 interface OverviewData {
   total_gmv: number
@@ -99,10 +100,7 @@ export default function DashboardPage() {
             {now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 rounded-full bg-green-900/20 border border-green-900/30 px-3 py-1.5">
-          <div className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-xs text-green-400">Sistem Aktif</span>
-        </div>
+        <RealtimeIndicator />
       </div>
 
       {/* Primary KPIs */}
