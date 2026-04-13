@@ -95,6 +95,7 @@ function MessagesContent() {
   const [search, setSearch] = useState('')
   const [newMsg, setNewMsg] = useState('')
   const [sending, setSending] = useState(false)
+  const [aiGenerating, setAiGenerating] = useState(false)
   const [showWaSettings, setShowWaSettings] = useState(false)
   const [waNumbers, setWaNumbers] = useState<WaNumber[]>([])
   const [loadingConvs, setLoadingConvs] = useState(true)
@@ -200,6 +201,22 @@ function MessagesContent() {
       await loadMessages(selected.affiliate_id)
       await loadConversations(search)
     } catch {} finally { setSending(false) }
+  }
+
+  async function handleAIGenerate() {
+    if (!selected) return
+    setAiGenerating(true)
+    try {
+      const { data } = await apiClient.post('/messages/ai-generate', {
+        affiliate_name: selected.affiliate_name,
+        affiliate_category: selected.wa_category,
+        purpose: 'outreach',
+        context: messages.length > 0 ? messages[messages.length - 1]?.message_content : undefined,
+      })
+      setNewMsg((data as any).message || '')
+    } catch {
+      // silent fail — user bisa ketik manual
+    } finally { setAiGenerating(false) }
   }
 
   async function handleUpdateWaNumber(id: string, phone: string, name: string) {
@@ -397,6 +414,14 @@ function MessagesContent() {
                 title="Pilih template"
                 className={`rounded-lg p-2 transition-colors ${showTemplates ? 'bg-violet-600/20 text-violet-400' : 'text-gray-500 hover:text-white hover:bg-[#1a1a1a]'}`}>
                 <FileText className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleAIGenerate}
+                disabled={aiGenerating || !selected}
+                title="Generate pesan dengan AI"
+                className="rounded-lg p-2 transition-colors text-gray-500 hover:text-yellow-400 hover:bg-[#1a1a1a] disabled:opacity-40"
+              >
+                {aiGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="text-sm">✨</span>}
               </button>
               <input value={newMsg} onChange={e => setNewMsg(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}

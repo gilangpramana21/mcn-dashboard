@@ -95,6 +95,18 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------
+    # Anthropic Claude (untuk AI generate pesan outreach)
+    # ------------------------------------------------------------------
+    ANTHROPIC_API_KEY: str = Field(
+        default="",
+        description="Anthropic API key untuk generate pesan outreach dengan Claude",
+    )
+    ANTHROPIC_MODEL: str = Field(
+        default="claude-3-5-haiku-20241022",
+        description="Model Claude yang digunakan",
+    )
+
+    # ------------------------------------------------------------------
     # Hugging Face (IndoBERT NLP)
     # ------------------------------------------------------------------
     HF_API_TOKEN: str = Field(

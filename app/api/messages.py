@@ -80,6 +80,18 @@ class BlastResult(BaseModel):
     recipients: List[BlastRecipient]
 
 
+class AIGenerateRequest(BaseModel):
+    affiliate_name: str
+    affiliate_category: Optional[str] = None  # e.g. 'Kecantikan', 'FnB'
+    purpose: Optional[str] = "outreach"  # outreach | follow_up | deal_closing
+    context: Optional[str] = None  # pesan terakhir dari affiliate (opsional)
+
+
+class AIGenerateResponse(BaseModel):
+    message: str
+    model: str
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _get_category_from_categories(categories: List[str]) -> str:
@@ -600,3 +612,63 @@ async def blast_send(
         skipped=skipped,
         recipients=recipients,
     )
+
+
+@router.post("/ai-generate", response_model=AIGenerateResponse)
+async def ai_generate_message(
+    body: AIGenerateRequest,
+    _: Dict[str, Any] = Depends(get_current_user),
+) -> AIGenerateResponse:
+    """Generate pesan outreach menggunakan Claude AI."""
+    from app.config import get_settings
+    settings = get_settings()
+
+    if not settings.ANTHROPIC_API_KEY:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY belum dikonfigurasi")
+
+    purpose_map = {
+        "outreach": "pesan perkenalan awal untuk mengajak kolaborasi",
+        "follow_up": "pesan follow-up karena belum ada respons",
+        "deal_closing": "pesan untuk menutup deal dan konfirmasi kolaborasi",
+    }
+    purpose_text = purpose_map.get(body.purpose or "outreach", purpose_map["outreach"])
+
+    category_text = f"kategori konten {body.affiliate_category}" if body.affiliate_category else "konten umum"
+    context_text = f"\n\nPesan terakhir dari affiliate: \"{body.context}\"" if body.context else ""
+
+    prompt = f"""Kamu adalah manajer MCN (Multi-Channel Network) Indonesia yang profesional dan ramah.
+Tulis {purpose_text} untuk affiliator TikTok bernama {body.affiliate_name} yang membuat konten {category_text}.{context_text}
+
+Ketentuan:
+- Bahasa Indonesia yang natural dan tidak kaku
+- Singkat dan to the point (maksimal 3-4 kalimat)
+- Tone ramah tapi profesional
+- Sebutkan nama affiliator
+- Jangan sertakan tanda kutip atau label apapun, langsung isi pesannya saja"""
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": settings.ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": settings.ANTHROPIC_MODEL,
+                    "max_tokens": 300,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            message_text = data["content"][0]["text"].strip()
+            return AIGenerateResponse(message=message_text, model=settings.ANTHROPIC_MODEL)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Claude API error: %s", e)
+        from fastapi import HTTPException
+        raise HTTPException(status_code=502, detail=f"Gagal generate pesan: {str(e)}")
