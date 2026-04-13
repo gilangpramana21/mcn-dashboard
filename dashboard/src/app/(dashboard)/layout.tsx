@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/Sidebar'
 import { NotificationBell } from '@/components/NotificationBell'
+import { BrandSelector } from '@/components/BrandSelector'
+import { BrandProvider } from '@/contexts/BrandContext'
 import { useAuth } from '@/hooks/useAuth'
 import { getToken } from '@/lib/auth'
 
@@ -28,23 +30,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex h-screen bg-[#0a0a0a]">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 items-center justify-between border-b border-[#1f1f1f] bg-[#111111] px-6">
-          <span className="text-sm text-gray-400">Dashboard</span>
-          <div className="flex items-center gap-3">
-            <NotificationBell />
-            <button onClick={logout}
-              className="text-sm text-gray-400 hover:text-white transition-colors">
-              Keluar
-            </button>
-          </div>
-        </header>
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
+    <BrandProvider>
+      <div className="flex h-screen bg-[#0a0a0a]">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <header className="flex h-14 items-center justify-between border-b border-[#1f1f1f] bg-[#111111] px-6">
+            <span className="text-sm text-gray-400">Dashboard</span>
+            <div className="flex items-center gap-3">
+              <BrandSelector />
+              <NotificationBell />
+              <button onClick={logout}
+                className="text-sm text-gray-400 hover:text-white transition-colors">
+                Keluar
+              </button>
+            </div>
+          </header>
+          <main className="flex-1 overflow-auto">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </BrandProvider>
   )
 }

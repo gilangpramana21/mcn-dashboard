@@ -10,6 +10,7 @@ import {
   DollarSign, Users, TrendingUp, ShoppingBag, ChevronRight, Star, UserCheck,
 } from 'lucide-react'
 import { RealtimeIndicator } from '@/components/RealtimeIndicator'
+import { useBrand } from '@/contexts/BrandContext'
 
 interface OverviewData {
   total_gmv: number
@@ -52,6 +53,7 @@ interface ProductItem {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { activeBrand } = useBrand()
   const { data: overview, loading: overviewLoading } = useAnalytics<OverviewData>('overview')
   const { data: creatorsData, loading: creatorsLoading } = useAnalytics<CreatorItem[]>('creators', { sort_by: 'revenue', limit: 20 })
   const { data: contentData, loading: contentLoading } = useAnalytics<ContentItem[]>('content', { sort_by: 'views', limit: 5 })
@@ -100,7 +102,15 @@ export default function DashboardPage() {
             {now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <RealtimeIndicator />
+        <div className="flex items-center gap-3">
+          {activeBrand && (
+            <div className="flex items-center gap-1.5 rounded-full bg-violet-900/20 border border-violet-900/30 px-3 py-1.5">
+              <div className="h-2 w-2 rounded-full bg-violet-400" />
+              <span className="text-xs text-violet-400">{activeBrand.name}</span>
+            </div>
+          )}
+          <RealtimeIndicator />
+        </div>
       </div>
 
       {/* Primary KPIs */}

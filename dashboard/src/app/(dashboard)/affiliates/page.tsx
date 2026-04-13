@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Search, SlidersHorizontal, X, ChevronDown, ChevronUp, RotateCcw, MessageCircle, Phone, Upload, Check } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { features } from '@/lib/features'
+import { useBrand } from '@/contexts/BrandContext'
 
 // ─── Filter Data ─────────────────────────────────────────────────────────────
 
