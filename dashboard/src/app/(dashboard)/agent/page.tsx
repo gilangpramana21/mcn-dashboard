@@ -9,6 +9,7 @@ interface TokenStatus {
   shop_id: string | null
   shop_name: string | null
   has_token: boolean
+  has_cipher: boolean
 }
 
 interface AgentResult {
@@ -42,7 +43,7 @@ const CATEGORIES = [
 export default function AgentPage() {
   const [tokenStatus, setTokenStatus] = useState<TokenStatus | null>(null)
   const [loadingToken, setLoadingToken] = useState(true)
-  const [activeTab, setActiveTab] = useState<'run' | 'token' | 'history'>('run')
+  const [activeTab, setActiveTab] = useState<'run' | 'token' | 'history' | 'data'>('run')
 
   // Agent config
   const [keyword, setKeyword] = useState('')
@@ -57,12 +58,16 @@ export default function AgentPage() {
   // Token manual
   const [manualToken, setManualToken] = useState('')
   const [manualRefresh, setManualRefresh] = useState('')
+  const [manualCipher, setManualCipher] = useState('')
   const [savingToken, setSavingToken] = useState(false)
   const [tokenSaved, setTokenSaved] = useState(false)
+  const [fetchingCipher, setFetchingCipher] = useState(false)
 
   // History
   const [history, setHistory] = useState<AgentHistory | null>(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [fetchData, setFetchData] = useState<any>(null)
+  const [loadingFetch, setLoadingFetch] = useState(false)
 
   useEffect(() => {
     loadTokenStatus()
@@ -70,6 +75,7 @@ export default function AgentPage() {
 
   useEffect(() => {
     if (activeTab === 'history') loadHistory()
+    if (activeTab === 'data') loadFetchData()
   }, [activeTab])
 
   async function loadTokenStatus() {
@@ -78,7 +84,7 @@ export default function AgentPage() {
       const { data } = await apiClient.get('/tiktok-shop/token/status')
       setTokenStatus(data)
     } catch {
-      setTokenStatus({ status: 'no_token', expires_at: null, shop_id: null, shop_name: null, has_token: false })
+      setTokenStatus({ status: 'no_token', expires_at: null, shop_id: null, shop_name: null, has_token: false, has_cipher: false })
     } finally {
       setLoadingToken(false)
     }
@@ -91,12 +97,21 @@ export default function AgentPage() {
       await apiClient.post('/tiktok-shop/token/manual', {
         access_token: manualToken.trim(),
         refresh_token: manualRefresh.trim(),
-        expires_in: 86400, // 24 jam default
+        expires_in: 86400,
+        shop_cipher: manualCipher.trim() || undefined,
       })
       setTokenSaved(true)
       await loadTokenStatus()
       setTimeout(() => setTokenSaved(false), 2000)
     } catch {} finally { setSavingToken(false) }
+  }
+
+  async function handleFetchCipher() {
+    setFetchingCipher(true)
+    try {
+      await apiClient.post('/tiktok-shop/token/fetch-cipher')
+      await loadTokenStatus()
+    } catch {} finally { setFetchingCipher(false) }
   }
 
   async function handleRunAgent() {
@@ -127,6 +142,16 @@ export default function AgentPage() {
       const { data } = await apiClient.get('/tiktok-shop/agent/history')
       setHistory(data)
     } catch {} finally { setLoadingHistory(false) }
+  }
+
+  async function loadFetchData() {
+    setLoadingFetch(true)
+    try {
+      const { data } = await apiClient.get('/tiktok-shop/data/fetch')
+      setFetchData(data)
+    } catch (e: any) {
+      setFetchData({ error: e?.response?.data?.detail ?? 'Gagal ambil data' })
+    } finally { setLoadingFetch(false) }
   }
 
   function toggleCategory(cat: string) {
@@ -187,6 +212,7 @@ export default function AgentPage() {
           { id: 'run', label: 'Jalankan Agent', icon: Play },
           { id: 'token', label: 'Pengaturan Token', icon: Key },
           { id: 'history', label: 'Riwayat', icon: MessageCircle },
+          { id: 'data', label: 'Ambil Data', icon: RefreshCw },
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
@@ -334,12 +360,30 @@ export default function AgentPage() {
             {loadingToken ? (
               <div className="h-8 animate-pulse rounded bg-[#1a1a1a]" />
             ) : tokenOk ? (
-              <div className="flex items-center gap-2 text-green-400">
-                <CheckCircle className="h-4 w-4" />
-                <span className="text-sm">Token aktif</span>
-                {tokenStatus?.expires_at && (
-                  <span className="text-xs text-gray-500">· Expires: {new Date(tokenStatus.expires_at).toLocaleString('id-ID')}</span>
-                )}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-green-400">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="text-sm">Token aktif</span>
+                  {tokenStatus?.expires_at && (
+                    <span className="text-xs text-gray-500">· Expires: {new Date(tokenStatus.expires_at).toLocaleString('id-ID')}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  {tokenStatus?.has_cipher ? (
+                    <span className="flex items-center gap-1.5 text-xs text-green-400">
+                      <CheckCircle className="h-3 w-3" /> Shop Cipher tersimpan
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs text-yellow-400">
+                      <AlertCircle className="h-3 w-3" /> Shop Cipher belum ada
+                    </span>
+                  )}
+                  <button onClick={handleFetchCipher} disabled={fetchingCipher}
+                    className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 disabled:opacity-40">
+                    {fetchingCipher ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    Auto-fetch Cipher
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-red-400">
@@ -384,6 +428,12 @@ export default function AgentPage() {
               <label className="text-xs font-medium text-gray-400 mb-1 block">Refresh Token <span className="text-gray-600">(opsional)</span></label>
               <input value={manualRefresh} onChange={e => setManualRefresh(e.target.value)}
                 placeholder="Refresh token untuk perpanjang otomatis..."
+                className="w-full rounded-lg border border-[#1f1f1f] bg-[#0a0a0a] px-3 py-2 text-sm text-white font-mono focus:border-violet-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-400 mb-1 block">Shop Cipher <span className="text-gray-600">(opsional — bisa auto-fetch setelah simpan)</span></label>
+              <input value={manualCipher} onChange={e => setManualCipher(e.target.value)}
+                placeholder="Shop cipher dari authorized shops..."
                 className="w-full rounded-lg border border-[#1f1f1f] bg-[#0a0a0a] px-3 py-2 text-sm text-white font-mono focus:border-violet-500 focus:outline-none" />
             </div>
             <button onClick={handleSaveToken} disabled={savingToken || !manualToken.trim()}
@@ -471,6 +521,118 @@ export default function AgentPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+      {/* Tab: Ambil Data */}
+      {activeTab === 'data' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-400">Data langsung dari TikTok Shop API</p>
+            <button onClick={loadFetchData} className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1">
+              <RefreshCw className="h-3 w-3" /> Refresh
+            </button>
+          </div>
+
+          {loadingFetch ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-24 animate-pulse rounded-xl bg-[#111111]" />)}
+            </div>
+          ) : fetchData?.error ? (
+            <div className="rounded-xl border border-red-900/30 bg-red-900/10 p-4">
+              <p className="text-sm text-red-400">{fetchData.error}</p>
+            </div>
+          ) : fetchData ? (
+            <div className="space-y-4">
+              {/* Kolaborasi */}
+              <div className="rounded-xl border border-[#1f1f1f] overflow-hidden">
+                <div className="px-4 py-2.5 bg-[#0d0d0d] border-b border-[#1f1f1f] flex items-center justify-between">
+                  <p className="text-xs font-medium text-white">Kolaborasi</p>
+                  {fetchData.collaborations?.error ? (
+                    <span className="text-xs text-red-400">{fetchData.collaborations.error}</span>
+                  ) : (
+                    <span className="text-xs text-gray-500">{fetchData.collaborations?.data?.length ?? 0} item</span>
+                  )}
+                </div>
+                {!fetchData.collaborations?.error && fetchData.collaborations?.data?.length > 0 ? (
+                  <div className="divide-y divide-[#1f1f1f] max-h-48 overflow-y-auto">
+                    {fetchData.collaborations.data.map((c: any, i: number) => (
+                      <div key={i} className="px-4 py-2.5 flex items-center justify-between">
+                        <span className="text-xs text-white">{c.creator_name ?? c.name ?? `Kolaborasi #${i + 1}`}</span>
+                        <span className="text-xs text-gray-500">{c.status ?? '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-6 text-center text-xs text-gray-600">
+                    {fetchData.collaborations?.error ?? 'Belum ada kolaborasi'}
+                  </div>
+                )}
+              </div>
+
+              {/* Produk */}
+              <div className="rounded-xl border border-[#1f1f1f] overflow-hidden">
+                <div className="px-4 py-2.5 bg-[#0d0d0d] border-b border-[#1f1f1f] flex items-center justify-between">
+                  <p className="text-xs font-medium text-white">Produk Toko</p>
+                  {fetchData.products?.error ? (
+                    <span className="text-xs text-red-400">{fetchData.products.error}</span>
+                  ) : (
+                    <span className="text-xs text-gray-500">{fetchData.products?.data?.length ?? 0} item</span>
+                  )}
+                </div>
+                {!fetchData.products?.error && fetchData.products?.data?.length > 0 ? (
+                  <div className="divide-y divide-[#1f1f1f] max-h-48 overflow-y-auto">
+                    {fetchData.products.data.map((p: any, i: number) => (
+                      <div key={i} className="px-4 py-2.5 flex items-center justify-between">
+                        <span className="text-xs text-white">{p.product_name ?? p.name ?? `Produk #${i + 1}`}</span>
+                        <span className="text-xs text-gray-500">{p.status ?? '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-6 text-center text-xs text-gray-600">
+                    {fetchData.products?.error ?? 'Belum ada produk'}
+                  </div>
+                )}
+              </div>
+
+              {/* Creator yang pernah kolaborasi */}
+              <div className="rounded-xl border border-[#1f1f1f] overflow-hidden">
+                <div className="px-4 py-2.5 bg-[#0d0d0d] border-b border-[#1f1f1f] flex items-center justify-between">
+                  <p className="text-xs font-medium text-white">Creator Kolaborasi</p>
+                  {fetchData.creators?.error ? (
+                    <span className="text-xs text-red-400">{fetchData.creators.error}</span>
+                  ) : (
+                    <span className="text-xs text-gray-500">{fetchData.creators?.data?.length ?? 0} item</span>
+                  )}
+                </div>
+                {!fetchData.creators?.error && fetchData.creators?.data?.length > 0 ? (
+                  <div className="divide-y divide-[#1f1f1f] max-h-48 overflow-y-auto">
+                    {fetchData.creators.data.map((c: any, i: number) => (
+                      <div key={i} className="px-4 py-2.5 flex items-center justify-between">
+                        <span className="text-xs text-white">{c.creator_name ?? c.name ?? `Creator #${i + 1}`}</span>
+                        <span className="text-xs text-gray-500">{c.follower_count?.toLocaleString() ?? '—'} followers</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-6 text-center text-xs text-gray-600">
+                    {fetchData.creators?.error ?? 'Belum ada creator kolaborasi'}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-yellow-900/30 bg-yellow-900/10 p-3">
+                <p className="text-xs text-yellow-400">
+                  Catatan: Endpoint search creator tidak tersedia untuk Custom App. Data di atas adalah yang bisa diakses dengan scope "Creator collaborations".
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-[#1f1f1f] bg-[#111111] p-12 text-center">
+              <RefreshCw className="h-8 w-8 text-gray-700 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">Klik Refresh untuk ambil data</p>
             </div>
           )}
         </div>

@@ -43,6 +43,7 @@ class TokenInfo(BaseModel):
     expires_in: int
     shop_id: Optional[str] = None
     shop_name: Optional[str] = None
+    shop_cipher: Optional[str] = None
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -56,6 +57,19 @@ async def _get_active_token(db: AsyncSession) -> Optional[str]:
     """))
     row = result.mappings().first()
     return row["access_token"] if row else None
+
+
+async def _get_active_token_with_cipher(db: AsyncSession) -> tuple[Optional[str], Optional[str]]:
+    """Ambil access_token dan shop_cipher aktif dari database."""
+    result = await db.execute(text("""
+        SELECT access_token, shop_cipher FROM tiktok_shop_tokens
+        WHERE expires_at > NOW()
+        ORDER BY created_at DESC LIMIT 1
+    """))
+    row = result.mappings().first()
+    if not row:
+        return None, None
+    return row["access_token"], row.get("shop_cipher")
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -168,23 +182,10 @@ async def save_token_manual(
     """Simpan access_token secara manual (untuk testing atau token dari Seller Center)."""
     import uuid
 
-    # Buat tabel jika belum ada
     await db.execute(text("""
-        CREATE TABLE IF NOT EXISTS tiktok_shop_tokens (
-            id TEXT PRIMARY KEY,
-            access_token TEXT NOT NULL,
-            refresh_token TEXT,
-            expires_at TIMESTAMPTZ,
-            shop_id TEXT,
-            shop_name TEXT,
-            created_at TIMESTAMPTZ DEFAULT NOW()
-        )
-    """))
-
-    await db.execute(text("""
-        INSERT INTO tiktok_shop_tokens (id, access_token, refresh_token, expires_at, shop_id, shop_name)
+        INSERT INTO tiktok_shop_tokens (id, access_token, refresh_token, expires_at, shop_id, shop_name, shop_cipher)
         VALUES (:id, :access_token, :refresh_token,
-                NOW() + (:expires * INTERVAL '1 second'), :shop_id, :shop_name)
+                NOW() + (:expires * INTERVAL '1 second'), :shop_id, :shop_name, :shop_cipher)
     """), {
         "id": str(uuid.uuid4()),
         "access_token": body.access_token,
@@ -192,6 +193,7 @@ async def save_token_manual(
         "expires": body.expires_in,
         "shop_id": body.shop_id,
         "shop_name": body.shop_name,
+        "shop_cipher": body.shop_cipher,
     })
     await db.commit()
 
@@ -205,7 +207,7 @@ async def token_status(
 ) -> Dict[str, Any]:
     """Cek status token TikTok Shop."""
     result = await db.execute(text("""
-        SELECT access_token, expires_at, shop_id, shop_name, created_at
+        SELECT access_token, expires_at, shop_id, shop_name, shop_cipher, created_at
         FROM tiktok_shop_tokens
         ORDER BY created_at DESC LIMIT 1
     """))
@@ -223,8 +225,56 @@ async def token_status(
         "expires_at": expires_at.isoformat() if expires_at else None,
         "shop_id": row["shop_id"],
         "shop_name": row["shop_name"],
+        "has_cipher": bool(row.get("shop_cipher")),
         "has_token": True,
     }
+
+
+@router.post("/token/fetch-cipher")
+async def fetch_shop_cipher(
+    db: AsyncSession = Depends(get_db_session),
+    _: Dict[str, Any] = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Auto-fetch shop_cipher dari TikTok API menggunakan access_token yang ada.
+    shop_cipher diperlukan untuk semua API call versi 202309+.
+    """
+    from app.integrations.tiktok_shop_api import TikTokShopClient
+
+    access_token = await _get_active_token(db)
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Tidak ada token aktif.")
+
+    client = TikTokShopClient(access_token=access_token)
+    try:
+        shop_data = await client.get_authorized_shop()
+        shops = shop_data.get("shops", shop_data.get("list", []))
+        if not shops:
+            return {"status": "no_shops", "message": "Tidak ada shop yang ditemukan."}
+
+        # Ambil cipher dari shop pertama
+        shop = shops[0]
+        cipher = shop.get("cipher", "")
+        shop_id = shop.get("id", "")
+        shop_name = shop.get("name", "")
+
+        if cipher:
+            await db.execute(text("""
+                UPDATE tiktok_shop_tokens
+                SET shop_cipher = :cipher, shop_id = :shop_id, shop_name = :shop_name
+                WHERE expires_at > NOW()
+            """), {"cipher": cipher, "shop_id": shop_id, "shop_name": shop_name})
+            await db.commit()
+
+        return {
+            "status": "ok",
+            "shop_id": shop_id,
+            "shop_name": shop_name,
+            "cipher_saved": bool(cipher),
+            "shops": shops,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Gagal ambil shop cipher: {str(e)}")
 
 
 @router.post("/agent/run")
@@ -242,7 +292,7 @@ async def run_agent(
     from app.agents.tiktok_shop_agent import TikTokShopAgent, AgentRunConfig
 
     # Ambil token aktif
-    access_token = await _get_active_token(db)
+    access_token, shop_cipher = await _get_active_token_with_cipher(db)
     if not access_token:
         raise HTTPException(
             status_code=401,
@@ -261,7 +311,7 @@ async def run_agent(
         commission_rate=body.commission_rate,
     )
 
-    agent = TikTokShopAgent(access_token=access_token, db=db)
+    agent = TikTokShopAgent(access_token=access_token, shop_cipher=shop_cipher or "", db=db)
     result = await agent.run(config)
 
     return {
@@ -308,3 +358,51 @@ async def agent_history(
             for row in rows
         ],
     }
+
+
+@router.get("/data/fetch")
+async def fetch_basic_data(
+    db: AsyncSession = Depends(get_db_session),
+    _: Dict[str, Any] = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Ambil data dasar dari TikTok Shop yang tersedia:
+    - List kolaborasi yang sudah ada
+    - List produk toko
+    Tanpa search creator (tidak tersedia di Custom App).
+    """
+    from app.integrations.tiktok_shop_api import TikTokShopClient
+
+    access_token, shop_cipher = await _get_active_token_with_cipher(db)
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Tidak ada token aktif. Lakukan OAuth dulu.")
+
+    client = TikTokShopClient(access_token=access_token, shop_cipher=shop_cipher or "")
+    results: Dict[str, Any] = {
+        "collaborations": {"data": [], "error": None},
+        "products": {"data": [], "error": None},
+        "creators": {"data": [], "error": None},
+    }
+
+    # 1. List kolaborasi
+    try:
+        collab_data = await client.list_collaborations(page_size=20)
+        results["collaborations"]["data"] = collab_data.get("collaborations", collab_data.get("list", []))
+    except Exception as e:
+        results["collaborations"]["error"] = str(e)
+
+    # 2. List produk
+    try:
+        product_data = await client.get_shop_products(page_size=20)
+        results["products"]["data"] = product_data.get("products", product_data.get("list", []))
+    except Exception as e:
+        results["products"]["error"] = str(e)
+
+    # 3. List kreator yang pernah kolaborasi
+    try:
+        creator_data = await client.get_collaboration_creators(page_size=20)
+        results["creators"]["data"] = creator_data.get("creators", creator_data.get("list", []))
+    except Exception as e:
+        results["creators"]["error"] = str(e)
+
+    return results

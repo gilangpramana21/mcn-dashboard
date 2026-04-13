@@ -61,8 +61,8 @@ class TikTokShopAgent:
     3. Kirim pesan minta nomor WA
     """
 
-    def __init__(self, access_token: str, db: AsyncSession) -> None:
-        self._client = TikTokShopClient(access_token)
+    def __init__(self, access_token: str, db: AsyncSession, shop_cipher: str = "") -> None:
+        self._client = TikTokShopClient(access_token, shop_cipher=shop_cipher)
         self._db = db
         self._msg_learning = MessageLearningService(db)
 

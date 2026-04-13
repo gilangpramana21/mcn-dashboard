@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 TIKTOK_SHOP_BASE = "https://open-api.tiktokglobalshop.com"
 
+# API version untuk endpoint baru (202309+)
+API_VERSION = "202309"
+
 
 class TikTokShopClient:
     """
@@ -35,11 +38,12 @@ class TikTokShopClient:
     Referensi: https://partner.tiktokshop.com/docv2/page/affiliate
     """
 
-    def __init__(self, access_token: str) -> None:
+    def __init__(self, access_token: str, shop_cipher: str = "") -> None:
         settings = get_settings()
         self._app_key = settings.TIKTOK_APP_KEY
         self._app_secret = settings.TIKTOK_APP_SECRET
         self._access_token = access_token
+        self._shop_cipher = shop_cipher
         self._circuit_breaker = CircuitBreaker(max_failures=5, window_seconds=60.0, reset_seconds=30.0)
 
     def _sign_request(self, path: str, params: Dict[str, Any], body: str = "") -> str:
@@ -107,6 +111,18 @@ class TikTokShopClient:
             raise TikTokAPIError(f"Request gagal: {exc}") from exc
 
     # ──────────────────────────────────────────────────────────────────
+    # Shop Info
+    # ──────────────────────────────────────────────────────────────────
+
+    async def get_authorized_shop(self) -> Dict[str, Any]:
+        """Ambil info shop yang authorized — termasuk shop_cipher."""
+        result = await self._request(
+            "GET",
+            f"/authorization/{API_VERSION}/shops",
+        )
+        return result
+
+    # ──────────────────────────────────────────────────────────────────
     # Creator / Affiliator Search
     # ──────────────────────────────────────────────────────────────────
 
@@ -121,6 +137,8 @@ class TikTokShopClient:
     ) -> Dict[str, Any]:
         """
         Cari creator/affiliator di TikTok Shop Marketplace.
+        CATATAN: Endpoint ini hanya tersedia untuk Partner App yang sudah di-review TikTok.
+        Custom App tidak bisa mengakses endpoint ini.
 
         Returns:
             {
@@ -132,6 +150,8 @@ class TikTokShopClient:
         params: Dict[str, Any] = {"page_size": page_size}
         if page_token:
             params["page_token"] = page_token
+        if self._shop_cipher:
+            params["shop_cipher"] = self._shop_cipher
 
         body: Dict[str, Any] = {}
         if keyword:
@@ -145,7 +165,7 @@ class TikTokShopClient:
 
         result = await self._request(
             "POST",
-            "/api/v1/affiliate/creator/search",
+            f"/affiliate/{API_VERSION}/creators/search",
             params=params,
             json=body,
         )
@@ -153,10 +173,13 @@ class TikTokShopClient:
 
     async def get_creator_detail(self, creator_id: str) -> Dict[str, Any]:
         """Ambil detail lengkap satu creator."""
+        params: Dict[str, Any] = {"creator_id": creator_id}
+        if self._shop_cipher:
+            params["shop_cipher"] = self._shop_cipher
         result = await self._request(
             "GET",
-            "/api/v2/affiliate/creator/detail",
-            params={"creator_id": creator_id},
+            f"/affiliate/{API_VERSION}/creators",
+            params=params,
         )
         return result
 
@@ -174,22 +197,18 @@ class TikTokShopClient:
         """
         Kirim undangan kolaborasi targeted ke creator.
         Ini adalah cara resmi TikTok untuk 'menghubungi' creator via Seller Center.
-
-        Args:
-            creator_id: ID creator dari search result
-            product_ids: Daftar produk yang ingin dipromosikan
-            commission_rate: Komisi dalam persen (misal 15.0 = 15%)
-            message: Pesan personal ke creator
         """
-        body = {
+        body: Dict[str, Any] = {
             "creator_id": creator_id,
             "product_ids": product_ids,
             "commission_rate": commission_rate,
             "collaboration_message": message,
         }
+        if self._shop_cipher:
+            body["shop_cipher"] = self._shop_cipher
         result = await self._request(
             "POST",
-            "/api/v2/affiliate/collaboration/targeted/create",
+            f"/affiliate/{API_VERSION}/targeted_collaborations",
             json=body,
         )
         return result
@@ -206,10 +225,50 @@ class TikTokShopClient:
             params["page_token"] = page_token
         if status:
             params["status"] = status
+        if self._shop_cipher:
+            params["shop_cipher"] = self._shop_cipher
 
         result = await self._request(
             "GET",
-            "/api/v2/affiliate/collaboration/list",
+            f"/affiliate/{API_VERSION}/targeted_collaborations",
+            params=params,
+        )
+        return result
+
+    async def get_collaboration_creators(
+        self,
+        page_size: int = 20,
+        page_token: str = "",
+    ) -> Dict[str, Any]:
+        """Ambil list kreator yang sudah pernah berkolaborasi dengan toko ini."""
+        params: Dict[str, Any] = {"page_size": page_size}
+        if page_token:
+            params["page_token"] = page_token
+        if self._shop_cipher:
+            params["shop_cipher"] = self._shop_cipher
+
+        result = await self._request(
+            "GET",
+            f"/affiliate/{API_VERSION}/collaborations/creators",
+            params=params,
+        )
+        return result
+
+    async def get_shop_products(
+        self,
+        page_size: int = 20,
+        page_token: str = "",
+    ) -> Dict[str, Any]:
+        """Ambil list produk dari toko seller."""
+        params: Dict[str, Any] = {"page_size": page_size}
+        if page_token:
+            params["page_token"] = page_token
+        if self._shop_cipher:
+            params["shop_cipher"] = self._shop_cipher
+
+        result = await self._request(
+            "GET",
+            f"/product/{API_VERSION}/products",
             params=params,
         )
         return result
@@ -227,14 +286,16 @@ class TikTokShopClient:
         Kirim pesan chat ke creator via Seller Center.
         Dipakai untuk minta nomor WhatsApp.
         """
-        body = {
+        body: Dict[str, Any] = {
             "creator_id": creator_id,
             "message": message,
             "message_type": "TEXT",
         }
+        if self._shop_cipher:
+            body["shop_cipher"] = self._shop_cipher
         result = await self._request(
             "POST",
-            "/api/v2/affiliate/chat/send",
+            f"/affiliate/{API_VERSION}/chats/messages/send",
             json=body,
         )
         return result
@@ -245,10 +306,13 @@ class TikTokShopClient:
         page_size: int = 20,
     ) -> Dict[str, Any]:
         """Ambil history chat dengan creator."""
+        params: Dict[str, Any] = {"creator_id": creator_id, "page_size": page_size}
+        if self._shop_cipher:
+            params["shop_cipher"] = self._shop_cipher
         result = await self._request(
             "GET",
-            "/api/v2/affiliate/chat/messages",
-            params={"creator_id": creator_id, "page_size": page_size},
+            f"/affiliate/{API_VERSION}/chats/messages",
+            params=params,
         )
         return result
 
