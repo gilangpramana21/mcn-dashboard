@@ -31,10 +31,40 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)} hari lalu`
 }
 
-function playNotificationSound() {
+// Singleton AudioContext — dibuat sekali, di-resume saat user interact
+let _audioCtx: AudioContext | null = null
+
+function getAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null
+  if (!_audioCtx) {
+    try {
+      _audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    } catch {
+      return null
+    }
+  }
+  return _audioCtx
+}
+
+// Unlock AudioContext saat user pertama kali klik — wajib untuk autoplay policy
+if (typeof window !== 'undefined') {
+  const unlock = () => {
+    const ctx = getAudioContext()
+    if (ctx && ctx.state === 'suspended') ctx.resume()
+    window.removeEventListener('click', unlock)
+    window.removeEventListener('keydown', unlock)
+    window.removeEventListener('touchstart', unlock)
+  }
+  window.addEventListener('click', unlock)
+  window.addEventListener('keydown', unlock)
+  window.addEventListener('touchstart', unlock)
+}
+
+async function playNotificationSound() {
+  const ctx = getAudioContext()
+  if (!ctx) return
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    // Dua nada pendek seperti notif WA
+    if (ctx.state === 'suspended') await ctx.resume()
     const notes = [880, 1100]
     notes.forEach((freq, i) => {
       const osc = ctx.createOscillator()
@@ -43,15 +73,15 @@ function playNotificationSound() {
       gain.connect(ctx.destination)
       osc.type = 'sine'
       osc.frequency.value = freq
-      const start = ctx.currentTime + i * 0.12
+      const start = ctx.currentTime + i * 0.13
       gain.gain.setValueAtTime(0, start)
-      gain.gain.linearRampToValueAtTime(0.3, start + 0.01)
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.15)
+      gain.gain.linearRampToValueAtTime(0.35, start + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.18)
       osc.start(start)
-      osc.stop(start + 0.15)
+      osc.stop(start + 0.2)
     })
   } catch {
-    // Browser tidak support AudioContext, skip
+    // skip jika gagal
   }
 }
 
