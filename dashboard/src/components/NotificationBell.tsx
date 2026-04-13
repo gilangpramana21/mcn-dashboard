@@ -31,6 +31,30 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)} hari lalu`
 }
 
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    // Dua nada pendek seperti notif WA
+    const notes = [880, 1100]
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      const start = ctx.currentTime + i * 0.12
+      gain.gain.setValueAtTime(0, start)
+      gain.gain.linearRampToValueAtTime(0.3, start + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.15)
+      osc.start(start)
+      osc.stop(start + 0.15)
+    })
+  } catch {
+    // Browser tidak support AudioContext, skip
+  }
+}
+
 export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -70,9 +94,10 @@ export function NotificationBell() {
 
   const unreadCount = countData?.count ?? 0
 
-  // Toast saat ada pesan baru
+  // Toast + suara saat ada pesan baru
   useEffect(() => {
     if (unreadCount > prevCount.current && prevCount.current > 0) {
+      playNotificationSound()
       toast.info(`${unreadCount - prevCount.current} pesan baru masuk`, {
         description: 'Klik lonceng untuk melihat',
       })
