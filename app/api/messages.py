@@ -290,23 +290,33 @@ async def send_message(
     import json
     import uuid
 
-    # Ambil data affiliate
+    # Cari affiliate by id ATAU by name (karena conversation bisa pakai nama sebagai key)
     aff_result = await db.execute(text("""
         SELECT id, name, phone_number, content_categories FROM influencers
-        WHERE id = :id
-    """), {"id": body.affiliate_id})
+        WHERE id = :id OR name = :name
+        LIMIT 1
+    """), {"id": body.affiliate_id, "name": body.affiliate_id})
     aff = aff_result.mappings().first()
-    if not aff:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Affiliate tidak ditemukan")
 
     # Tentukan kategori WA
-    cats = aff["content_categories"] or []
-    if isinstance(cats, str):
-        try:
-            cats = json.loads(cats)
-        except Exception:
-            cats = []
+    cats: List[str] = []
+    affiliate_name = body.affiliate_id  # fallback ke input jika tidak ditemukan di DB
+    affiliate_db_id = body.affiliate_id
+    to_number = None
+
+    if aff:
+        affiliate_name = aff["name"]
+        affiliate_db_id = str(aff["id"])
+        to_number = aff["phone_number"]
+        raw_cats = aff["content_categories"] or []
+        if isinstance(raw_cats, str):
+            try:
+                cats = json.loads(raw_cats)
+            except Exception:
+                cats = []
+        elif isinstance(raw_cats, list):
+            cats = raw_cats
+
     wa_category = _get_category_from_categories(cats)
 
     # Ambil nomor WA yang sesuai kategori
@@ -328,9 +338,7 @@ async def send_message(
     wa_number_id = str(wa_row["id"]) if wa_row else None
     from_number = wa_row["phone_number"] if wa_row else None
     phone_number_id = wa_row.get("phone_number_id") if wa_row else None
-    to_number = aff["phone_number"]
 
-    # Simpan ke history
     msg_id = str(uuid.uuid4())
 
     # Kirim via Meta Cloud API jika phone_number_id tersedia
@@ -348,6 +356,7 @@ async def send_message(
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning("Gagal kirim WA: %s", e)
+
     await db.execute(text("""
         INSERT INTO message_history
             (id, affiliate_id, affiliate_name, direction, message_content,
@@ -357,8 +366,8 @@ async def send_message(
              :wa_number_id, :from_number, :to_number, 'sent', :template_id)
     """), {
         "id": msg_id,
-        "affiliate_id": body.affiliate_id,
-        "affiliate_name": aff["name"],
+        "affiliate_id": affiliate_db_id,
+        "affiliate_name": affiliate_name,
         "content": body.message_content,
         "wa_number_id": wa_number_id,
         "from_number": from_number,
