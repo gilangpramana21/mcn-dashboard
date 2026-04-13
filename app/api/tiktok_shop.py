@@ -14,6 +14,9 @@ from app.services.rbac import get_current_user
 
 router = APIRouter(prefix="/tiktok-shop", tags=["tiktok-shop"])
 
+# Alias router untuk backward compatibility dengan redirect URI /tiktok/callback
+router_alias = APIRouter(prefix="/tiktok", tags=["tiktok-shop"])
+
 
 # ─── Models ───────────────────────────────────────────────────────────────────
 
@@ -58,6 +61,7 @@ async def _get_active_token(db: AsyncSession) -> Optional[str]:
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.get("/callback")
+@router_alias.get("/callback")
 async def oauth_callback_get(
     code: str = Query(...),
     state: Optional[str] = Query(None),
