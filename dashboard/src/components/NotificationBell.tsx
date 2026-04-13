@@ -212,7 +212,9 @@ export function NotificationBell() {
                     onClick={() => {
                       if (!msg.is_read) markRead.mutate(msg.id)
                       setOpen(false)
-                      router.push(`/messages?affiliate=${encodeURIComponent(msg.affiliate_name)}`)
+                      const url = `/messages?affiliate=${encodeURIComponent(msg.affiliate_name)}`
+                      // Pakai replace agar selalu trigger re-render meski sudah di halaman messages
+                      router.replace(url)
                     }}
                   >
                     <div className={cn('h-8 w-8 rounded-full flex items-center justify-center shrink-0', ch.bg)}>

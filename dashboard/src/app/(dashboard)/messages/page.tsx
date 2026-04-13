@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Search, Send, MessageCircle, Phone, Settings, FileText, X, Zap, Users, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
@@ -81,6 +81,14 @@ function formatTime(iso: string) {
 }
 
 export default function MessagesPage() {
+  return (
+    <Suspense fallback={null}>
+      <MessagesContent />
+    </Suspense>
+  )
+}
+
+function MessagesContent() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [messages, setMessages] = useState<Message[]>([])
   const [selected, setSelected] = useState<Conversation | null>(null)
@@ -113,8 +121,14 @@ export default function MessagesPage() {
   }, [])
 
   // Auto-select conversation dari query param ?affiliate=nama
+  // Reset autoSelectDone setiap kali affiliate param berubah
+  const prevAffiliate = useRef<string | null>(null)
   useEffect(() => {
     const affiliateName = searchParams.get('affiliate')
+    if (affiliateName !== prevAffiliate.current) {
+      autoSelectDone.current = false
+      prevAffiliate.current = affiliateName
+    }
     if (!affiliateName || autoSelectDone.current || conversations.length === 0) return
     const match = conversations.find(c =>
       c.affiliate_name.toLowerCase() === affiliateName.toLowerCase()
