@@ -151,32 +151,39 @@ async def get_conversations(
         params["search"] = f"%{search.lower()}%"
 
     # Gabungkan incoming_messages (inbound) + message_history (outbound)
+    # Normalize aff_key: pakai affiliate_name sebagai canonical key agar tidak duplikat
     result = await db.execute(text(f"""
         WITH all_messages AS (
             SELECT
-                COALESCE(affiliate_id, affiliate_name) AS aff_key,
+                affiliate_name AS aff_key,
                 affiliate_name,
                 message_content,
                 received_at AS msg_at,
                 CASE WHEN is_read = FALSE THEN 1 ELSE 0 END AS is_unread
             FROM incoming_messages
+            WHERE affiliate_name IS NOT NULL AND affiliate_name != ''
             UNION ALL
             SELECT
-                affiliate_id AS aff_key,
+                affiliate_name AS aff_key,
                 affiliate_name,
                 message_content,
                 sent_at AS msg_at,
                 0 AS is_unread
             FROM message_history
+            WHERE affiliate_name IS NOT NULL AND affiliate_name != ''
         )
         SELECT
             aff_key AS affiliate_id,
             affiliate_name,
             COUNT(*) AS message_count,
             MAX(msg_at) AS last_message_at,
-            (SELECT message_content FROM all_messages am2
-             WHERE am2.aff_key = am.aff_key
-             ORDER BY am2.msg_at DESC LIMIT 1) AS last_message,
+            (SELECT am2.message_content FROM (
+                SELECT message_content, received_at AS msg_at, affiliate_name FROM incoming_messages
+                WHERE affiliate_name IS NOT NULL
+                UNION ALL
+                SELECT message_content, sent_at AS msg_at, affiliate_name FROM message_history
+                WHERE affiliate_name IS NOT NULL
+            ) am2 WHERE am2.affiliate_name = am.aff_key ORDER BY am2.msg_at DESC LIMIT 1) AS last_message,
             SUM(is_unread) AS unread_count
         FROM all_messages am
         {search_filter}
@@ -243,7 +250,8 @@ async def get_message_history(
                 received_at AS sent_at,
                 channel AS wa_category
             FROM incoming_messages
-            WHERE affiliate_name = :affiliate_id OR affiliate_id = :affiliate_id
+            WHERE affiliate_name = :affiliate_id
+               OR affiliate_id = :affiliate_id
             UNION ALL
             SELECT
                 id::text AS id,
@@ -257,7 +265,8 @@ async def get_message_history(
                 sent_at,
                 NULL::varchar AS wa_category
             FROM message_history
-            WHERE affiliate_id = :affiliate_id OR affiliate_name = :affiliate_id
+            WHERE affiliate_name = :affiliate_id
+               OR affiliate_id = :affiliate_id
         ) combined
         ORDER BY sent_at ASC
         LIMIT :limit OFFSET :offset
